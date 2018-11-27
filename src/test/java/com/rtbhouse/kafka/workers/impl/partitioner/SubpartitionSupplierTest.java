@@ -28,7 +28,7 @@ public class SubpartitionSupplierTest {
             }
 
             @Override
-            public int count() {
+            public int count(TopicPartition topicPartition) {
                 return 3;
             }
         });
@@ -52,7 +52,7 @@ public class SubpartitionSupplierTest {
             }
 
             @Override
-            public int count() {
+            public int count(TopicPartition topicPartition) {
                 return 3;
             }
         });
@@ -74,8 +74,8 @@ public class SubpartitionSupplierTest {
             }
 
             @Override
-            public int count() {
-                return 2;
+            public int count(TopicPartition topicPartition) {
+                return topicPartition.partition();
             }
         });
 
@@ -84,11 +84,12 @@ public class SubpartitionSupplierTest {
                 .subpartitions(Arrays.asList(new TopicPartition("topic", 2), new TopicPartition("topic", 3)));
 
         // then
-        assertThat(subpartitions.size()).isEqualTo(4);
+        assertThat(subpartitions.size()).isEqualTo(5);
         assertThat(subpartitions.get(0)).isEqualTo(new WorkerSubpartition("topic", 2, 0));
         assertThat(subpartitions.get(1)).isEqualTo(new WorkerSubpartition("topic", 2, 1));
         assertThat(subpartitions.get(2)).isEqualTo(new WorkerSubpartition("topic", 3, 0));
         assertThat(subpartitions.get(3)).isEqualTo(new WorkerSubpartition("topic", 3, 1));
+        assertThat(subpartitions.get(4)).isEqualTo(new WorkerSubpartition("topic", 3, 2));
     }
 
 }

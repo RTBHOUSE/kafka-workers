@@ -61,13 +61,13 @@ public abstract class AbstractWorkersThread extends Thread {
                 throw new WorkersException(exception);
             }
         } catch (WorkersException e) {
-            logger.error("WorkerException: {}", e.getMessage());
+            logger.error("WorkerException: ", e);
             workers.shutdown(e);
         } catch (InterruptedException e) {
-            logger.error("InterruptedException: {}", e.getMessage());
+            logger.error("InterruptedException: ", e);
             workers.shutdown(new WorkersException(e));
         } catch (Exception e) {
-            logger.error("Exception: {}", e.getMessage());
+            logger.error("Exception: ", e);
             workers.shutdown(new WorkersException(e));
         } finally {
             try {

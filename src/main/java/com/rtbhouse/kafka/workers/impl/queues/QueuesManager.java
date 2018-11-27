@@ -7,6 +7,8 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.kafka.common.TopicPartition;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.rtbhouse.kafka.workers.api.WorkersConfig;
 import com.rtbhouse.kafka.workers.api.partitioner.WorkerSubpartition;
@@ -18,12 +20,15 @@ import com.rtbhouse.kafka.workers.impl.task.TaskManager;
 
 public class QueuesManager<K, V> implements Partitioned {
 
+    private static final Logger logger = LoggerFactory.getLogger(QueuesManager.class);
+
     private final WorkersConfig config;
     private final WorkersMetrics metrics;
     private final SubpartitionSupplier<K, V> subpartitionSupplier;
     private final TaskManager<K, V> taskManager;
 
     private final Map<WorkerSubpartition, RecordsQueue<K, V>> queues = new ConcurrentHashMap<>();
+    private final Map<WorkerSubpartition, Long> sizesInBytes = new ConcurrentHashMap<>();
 
     public QueuesManager(
             WorkersConfig config,
@@ -40,7 +45,9 @@ public class QueuesManager<K, V> implements Partitioned {
     public void register(Collection<TopicPartition> topicPartitions) {
         for (WorkerSubpartition subpartition : subpartitionSupplier.subpartitions(topicPartitions)) {
             queues.put(subpartition, new RecordsQueue<>());
+            sizesInBytes.put(subpartition, 0L);
             metrics.addSizeMetric(WorkersMetrics.QUEUE_SIZE_METRIC, subpartition.toString(), queues.get(subpartition));
+
         }
     }
 
@@ -49,11 +56,14 @@ public class QueuesManager<K, V> implements Partitioned {
         for (WorkerSubpartition subpartition : subpartitionSupplier.subpartitions(topicPartitions)) {
             metrics.removeSizeMetric(WorkersMetrics.QUEUE_SIZE_METRIC, subpartition.toString());
             queues.get(subpartition).clear();
+            sizesInBytes.put(subpartition, 0L);
         }
     }
 
     public WorkerRecord<K, V> poll(WorkerSubpartition subpartition) {
-        return queues.get(subpartition).poll();
+        WorkerRecord<K, V> record = queues.get(subpartition).poll();
+        sizesInBytes.compute(subpartition, (key, value) -> value - record.size());
+        return record;
     }
 
     public WorkerRecord<K, V> peek(WorkerSubpartition subpartition) {
@@ -62,14 +72,23 @@ public class QueuesManager<K, V> implements Partitioned {
 
     public void push(WorkerSubpartition subpartition, WorkerRecord<K, V> record) {
         queues.get(subpartition).add(record);
+        sizesInBytes.compute(subpartition, (key, value) -> value + record.size());
         taskManager.notifyTask(subpartition);
     }
 
     public Set<TopicPartition> getPartitionsToPause(Set<TopicPartition> assigned, Set<TopicPartition> paused) {
-        final int queueMaxSize = config.getInt(WorkersConfig.QUEUE_MAX_SIZE);
         Set<TopicPartition> partitionsToPause = new HashSet<>();
+        if (getTotalSizeInBytes() >= config.getLong(WorkersConfig.QUEUE_TOTAL_MAX_SIZE_BYTES)) {
+            logger.warn("total size in bytes: {} exceeded", config.getLong(WorkersConfig.QUEUE_TOTAL_MAX_SIZE_BYTES));
+            partitionsToPause.addAll(assigned);
+            partitionsToPause.removeAll(paused);
+            return partitionsToPause;
+        }
         for (WorkerSubpartition subpartition : subpartitionSupplier.subpartitions(assigned)) {
-            if (queues.get(subpartition).size() >= queueMaxSize && !paused.contains(subpartition.topicPartition())) {
+            if (sizesInBytes.get(subpartition) >= config.getLong(WorkersConfig.QUEUE_MAX_SIZE_BYTES)
+                    && !paused.contains(subpartition.topicPartition())) {
+                logger.warn("size in bytes: {} for: {} (events count: {}) exceeded",
+                        config.getLong(WorkersConfig.QUEUE_MAX_SIZE_BYTES), subpartition, queues.get(subpartition).size());
                 partitionsToPause.add(subpartition.topicPartition());
             }
         }
@@ -77,12 +96,14 @@ public class QueuesManager<K, V> implements Partitioned {
     }
 
     public Set<TopicPartition> getPartitionsToResume(Set<TopicPartition> pausedPartitions) {
-        final int queueMaxSize = config.getInt(WorkersConfig.QUEUE_MAX_SIZE);
+        if (getTotalSizeInBytes() > config.getLong(WorkersConfig.QUEUE_TOTAL_MAX_SIZE_BYTES) / 2) {
+            return new HashSet<>();
+        }
         Set<TopicPartition> partitionsToResume = new HashSet<>();
         for (TopicPartition topicPartition : pausedPartitions) {
             boolean shouldBeResumed = true;
             for (WorkerSubpartition subpartition : subpartitionSupplier.subpartitions(topicPartition)) {
-                if (queues.get(subpartition).size() > queueMaxSize / 2) {
+                if (sizesInBytes.get(subpartition) > config.getLong(WorkersConfig.QUEUE_MAX_SIZE_BYTES) / 2) {
                     shouldBeResumed = false;
                 }
             }
@@ -91,6 +112,14 @@ public class QueuesManager<K, V> implements Partitioned {
             }
         }
         return partitionsToResume;
+    }
+
+    private long getTotalSizeInBytes() {
+        long totalSize = 0;
+        for (Long size : sizesInBytes.values()) {
+            totalSize += size;
+        }
+        return totalSize;
     }
 
 }

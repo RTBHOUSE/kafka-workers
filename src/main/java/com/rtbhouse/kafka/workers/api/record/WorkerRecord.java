@@ -56,6 +56,10 @@ public class WorkerRecord<K, V> {
         return record.value();
     }
 
+    public int size() {
+        return record.serializedKeySize() + record.serializedValueSize();
+    }
+
     @Override
     public String toString() {
         return "WorkerRecord(record = " + record + ", subpartition = " + subpartition + ")";

@@ -25,10 +25,10 @@ public interface WorkerPartitioner<K, V> {
     int subpartition(ConsumerRecord<K, V> consumerRecord);
 
     /**
-     * Returns the total number of sub-partitions for every topic partition.
+     * Returns the total number of sub-partitions for given {@link TopicPartition}.
      *
      * @return an integer greater than or equal to 1
      */
-    int count();
+    int count(TopicPartition topicPartition);
 
 }

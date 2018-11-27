@@ -15,7 +15,7 @@ public class DefaultPartitioner<K, V> implements WorkerPartitioner<K, V> {
     }
 
     @Override
-    public int count() {
+    public int count(TopicPartition topicPartition) {
         return 1;
     }
 

@@ -22,11 +22,12 @@ public class SubpartitionSupplier<K, V> {
 
     public WorkerSubpartition subpartition(ConsumerRecord<K, V> record) {
         // returns WorkerSubpartition for given ConsumerRecord using WorkerPartitioner to determine sub-partition id
+        TopicPartition topicPartition = new TopicPartition(record.topic(), record.partition());
         int subpartition = partitioner.subpartition(record);
-        if (subpartition < 0 || subpartition >= partitioner.count()) {
+        if (subpartition < 0 || subpartition >= partitioner.count(topicPartition)) {
             throw new BadSubpartitionException("Invalid subpartition: " + subpartition);
         }
-        return new WorkerSubpartition(record.topic(), record.partition(), subpartition);
+        return new WorkerSubpartition(topicPartition, subpartition);
     }
 
     public List<WorkerSubpartition> subpartitions(TopicPartition topicPartition) {
@@ -37,7 +38,7 @@ public class SubpartitionSupplier<K, V> {
         // generates all WorkerSubpartition(s) associated with given TopicPartition(s)
         List<WorkerSubpartition> workerSubpartitions = new ArrayList<>();
         for (TopicPartition partition : topicPartitions) {
-            for (int subpartition = 0; subpartition < partitioner.count(); subpartition++) {
+            for (int subpartition = 0; subpartition < partitioner.count(partition); subpartition++) {
                 workerSubpartitions.add(new WorkerSubpartition(partition, subpartition));
             }
         }

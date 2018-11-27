@@ -65,7 +65,12 @@ public class WorkerThread<K, V> extends AbstractWorkersThread {
                 if (pollRecord == null || !pollRecord.equals(peekRecord)) {
                     throw new WorkersException("peekRecord and pollRecord are different");
                 }
-                task.process(pollRecord, new RecordStatusObserverImpl(pollRecord, this, offsetsState, metrics));
+                try {
+                    task.process(pollRecord, new RecordStatusObserverImpl(pollRecord, this, offsetsState, metrics));
+                } catch (Exception e) {
+                    logger.error("Exception when processing record: {}", pollRecord.toString());
+                    throw e;
+                }
             }
         }
         if (accepted == 0) {

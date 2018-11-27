@@ -1,5 +1,6 @@
 package com.rtbhouse.kafka.workers.api;
 
+import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.Map;
 
@@ -12,7 +13,6 @@ import org.apache.kafka.common.config.ConfigDef.Type;
 import org.apache.kafka.common.metrics.MetricsReporter;
 
 import com.rtbhouse.kafka.workers.api.partitioner.WorkerSubpartition;
-import com.rtbhouse.kafka.workers.api.record.WorkerRecord;
 import com.rtbhouse.kafka.workers.api.task.WorkerTask;
 import com.rtbhouse.kafka.workers.impl.consumer.ConsumerThread;
 import com.rtbhouse.kafka.workers.impl.task.WorkerThread;
@@ -21,10 +21,6 @@ import com.rtbhouse.kafka.workers.impl.task.WorkerThread;
  * {@link KafkaWorkers} configuration
  */
 public class WorkersConfig extends AbstractConfig {
-
-    public static final long MS_PER_SECOND = ChronoUnit.SECONDS.getDuration().toMillis();
-    public static final long MS_PER_MINUTE = ChronoUnit.MINUTES.getDuration().toMillis();
-    public static final long MS_PER_HOUR = ChronoUnit.HOURS.getDuration().toMillis();
 
     /**
      * Prefix for internal {@link KafkaConsumer} configuration used by {@link ConsumerThread}.
@@ -47,21 +43,21 @@ public class WorkersConfig extends AbstractConfig {
      */
     public static final String CONSUMER_POLL_TIMEOUT_MS = "consumer.poll.timeout.ms";
     private static final String CONSUMER_POLL_TIMEOUT_MS_DOC = "Timeout in milliseconds for KafkaConsumer's poll().";
-    private static final long CONSUMER_POLL_TIMEOUT_MS_DEFAULT = MS_PER_SECOND;
+    private static final long CONSUMER_POLL_TIMEOUT_MS_DEFAULT = Duration.of(1, ChronoUnit.SECONDS).toMillis();
 
     /**
      * Interval in milliseconds with which to commit processed offsets.
      */
     public static final String CONSUMER_COMMIT_INTERVAL_MS = "consumer.commit.interval.ms";
     private static final String CONSUMER_COMMIT_INTERVAL_MS_DOC = "Interval in milliseconds with which to commit processed offsets.";
-    private static final long CONSUMER_COMMIT_INTERVAL_MS_DEFAULT = 10 * MS_PER_SECOND;
+    private static final long CONSUMER_COMMIT_INTERVAL_MS_DEFAULT = Duration.of(10, ChronoUnit.SECONDS).toMillis();
 
     /**
      * Timeout in milliseconds for record to be successfully processed.
      */
     public static final String CONSUMER_PROCESSING_TIMEOUT_MS = "consumer.processing.timeout.ms";
     private static final String CONSUMER_PROCESSING_TIMEOUT_MS_DOC = "Timeout in milliseconds for record to be successfully processed.";
-    private static final Long CONSUMER_PROCESSING_TIMEOUT_MS_DEFAULT = 5 * MS_PER_MINUTE;
+    private static final long CONSUMER_PROCESSING_TIMEOUT_MS_DEFAULT = Duration.of(5, ChronoUnit.MINUTES).toMillis();
 
     /**
      * Number of {@link WorkerThread}s per one {@link KafkaWorkers} instance.
@@ -75,14 +71,21 @@ public class WorkersConfig extends AbstractConfig {
      */
     public static final String WORKER_SLEEP_MS = "worker.sleep.ms";
     private static final String WORKER_SLEEP_MS_DOC = "Sleep time in milliseconds for WorkerThread in case of not accepted tasks.";
-    private static final long WORKER_SLEEP_MS_DEFAULT = MS_PER_SECOND;
+    private static final long WORKER_SLEEP_MS_DEFAULT = Duration.of(1, ChronoUnit.SECONDS).toMillis();
 
     /**
-     * Max number of {@link WorkerRecord}s in {@link WorkerSubpartition}'s internal queue.
+     * Max size in bytes for single {@link WorkerSubpartition}'s internal queue.
      */
-    public static final String QUEUE_MAX_SIZE = "queue.max.size";
-    private static final String QUEUE_MAX_SIZE_DOC = "Max number of WorkerRecords in WorkerSubpartition's internal queue.";
-    private static final int QUEUE_MAX_SIZE_DEFAULT = 10000;
+    public static final String QUEUE_MAX_SIZE_BYTES = "queue.max.size.bytes";
+    private static final String QUEUE_MAX_SIZE_BYTES_DOC = "Max size in bytes for single WorkerSubpartition's internal queue.";
+    private static final long QUEUE_MAX_SIZE_BYTES_DEFAULT = 256 * 1024 * 1024;
+
+    /**
+     * Max total size in bytes for all internal queues.
+     */
+    public static final String QUEUE_TOTAL_MAX_SIZE_BYTES = "queue.total.max.size.bytes";
+    private static final String QUEUE_TOTAL_MAX_SIZE_BYTES_DOC = "Total max size in bytes for all internal queues.";
+    private static final long QUEUE_TOTAL_MAX_SIZE_BYTES_DEFAULT = 1024 * 1024 * 1024;
 
     /**
      * List of {@link MetricsReporter}s which report {@code KafkaWorkers}'s metrics.
@@ -124,11 +127,16 @@ public class WorkersConfig extends AbstractConfig {
                         WORKER_SLEEP_MS_DEFAULT,
                         Importance.MEDIUM,
                         WORKER_SLEEP_MS_DOC)
-                .define(QUEUE_MAX_SIZE,
-                        Type.INT,
-                        QUEUE_MAX_SIZE_DEFAULT,
+                .define(QUEUE_MAX_SIZE_BYTES,
+                        Type.LONG,
+                        QUEUE_MAX_SIZE_BYTES_DEFAULT,
                         Importance.MEDIUM,
-                        QUEUE_MAX_SIZE_DOC)
+                        QUEUE_MAX_SIZE_BYTES_DOC)
+                .define(QUEUE_TOTAL_MAX_SIZE_BYTES,
+                        Type.LONG,
+                        QUEUE_TOTAL_MAX_SIZE_BYTES_DEFAULT,
+                        Importance.MEDIUM,
+                        QUEUE_TOTAL_MAX_SIZE_BYTES_DOC)
                 .define(METRIC_REPORTER_CLASSES,
                         Type.LIST,
                         METRIC_REPORTER_CLASSES_DEFAULT,
