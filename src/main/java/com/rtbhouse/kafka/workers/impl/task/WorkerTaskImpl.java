@@ -27,7 +27,7 @@ public class WorkerTaskImpl<K, V> implements WorkerTask<K, V> {
     @Override
     public void init(WorkerSubpartition subpartition, WorkersConfig config) {
         this.subpartition = subpartition;
-        metrics.addWorkerThreadMetrics(subpartition);
+        metrics.addWorkerThreadSubpartitionMetrics(subpartition);
         task.init(subpartition, config);
     }
 
@@ -50,7 +50,7 @@ public class WorkerTaskImpl<K, V> implements WorkerTask<K, V> {
     @Override
     public void close() {
         task.close();
-        metrics.removeWorkerThreadMetrics(subpartition);
+        metrics.removeWorkerThreadSubpartitionMetrics(subpartition);
     }
 
     public WorkerSubpartition subpartition() {

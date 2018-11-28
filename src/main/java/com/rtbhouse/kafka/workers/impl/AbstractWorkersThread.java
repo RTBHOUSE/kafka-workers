@@ -60,15 +60,9 @@ public abstract class AbstractWorkersThread extends Thread {
             if (exception != null) {
                 throw new WorkersException(exception);
             }
-        } catch (WorkersException e) {
-            logger.error("WorkerException: ", e);
-            workers.shutdown(e);
-        } catch (InterruptedException e) {
-            logger.error("InterruptedException: ", e);
-            workers.shutdown(new WorkersException(e));
-        } catch (Exception e) {
-            logger.error("Exception: ", e);
-            workers.shutdown(new WorkersException(e));
+        } catch (Throwable e) {
+            logger.error("Thread shuts down KafkaWorkers", e);
+            workers.shutdown(wrapIfNeeded(e));
         } finally {
             try {
                 close();
@@ -77,6 +71,10 @@ public abstract class AbstractWorkersThread extends Thread {
             }
         }
         logger.info("thread {} closed", name);
+    }
+
+    private WorkersException wrapIfNeeded(Throwable e) {
+        return (e instanceof WorkersException) ? (WorkersException) e : new WorkersException(e);
     }
 
 }

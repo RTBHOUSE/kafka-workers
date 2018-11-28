@@ -1,5 +1,8 @@
 package com.rtbhouse.kafka.workers.impl;
 
+import static com.rtbhouse.kafka.workers.impl.metrics.WorkersMetrics.WORKER_THREAD_COUNT_METRIC_NAME;
+import static com.rtbhouse.kafka.workers.impl.metrics.WorkersMetrics.WORKER_THREAD_METRIC_GROUP;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -91,6 +94,8 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
         setStatus(Status.STARTED);
         logger.info("kafka workers started");
 
+        metrics.addSizeMetric(WORKER_THREAD_METRIC_GROUP, WORKER_THREAD_COUNT_METRIC_NAME, workerThreads);
+
         shutdownThread = new ShutdownListenerThread(this);
         shutdownThread.start();
     }
@@ -122,6 +127,8 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
     public void close() {
         setStatus(Status.CLOSING);
         logger.info("kafka workers closing");
+
+        metrics.removeSizeMetric(WORKER_THREAD_METRIC_GROUP, WORKER_THREAD_COUNT_METRIC_NAME);
 
         consumerThread.shutdown();
         for (WorkerThread<K, V> workerThread : workerThreads) {
