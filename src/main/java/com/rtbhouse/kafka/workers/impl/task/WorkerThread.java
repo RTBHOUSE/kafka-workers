@@ -45,6 +45,7 @@ public class WorkerThread<K, V> extends AbstractWorkersThread {
     @Override
     public void init() {
         // tasks are initialized by TaskManager during task registration
+        metrics.addWorkerThreadMetrics(this);
     }
 
     @Override
@@ -86,6 +87,7 @@ public class WorkerThread<K, V> extends AbstractWorkersThread {
         for (WorkerTaskImpl<K, V> task : tasks) {
             task.close();
         }
+        metrics.removeWorkerThreadMetrics(this);
     }
 
     @Override

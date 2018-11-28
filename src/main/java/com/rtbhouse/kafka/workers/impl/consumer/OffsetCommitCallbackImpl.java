@@ -39,7 +39,7 @@ public class OffsetCommitCallbackImpl implements OffsetCommitCallback {
             for (Map.Entry<TopicPartition, OffsetAndMetadata> entry : offsets.entrySet()) {
                 TopicPartition partition = entry.getKey();
                 long offset = entry.getValue().offset();
-                metrics.recordSensor(WorkersMetrics.COMITTED_OFFSET_METRIC, partition, offset);
+                metrics.recordSensor(WorkersMetrics.COMMITTED_OFFSET_METRIC, partition, offset);
             }
             offsetsState.removeCommitted(offsets);
         }

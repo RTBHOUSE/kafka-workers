@@ -99,6 +99,7 @@ public class ConsumerThread<K, V> extends AbstractWorkersThread implements Parti
         if (shouldCommitNow()) {
             long minTimestamp = System.currentTimeMillis() - config.getLong(WorkersConfig.CONSUMER_PROCESSING_TIMEOUT_MS);
             Map<TopicPartition, OffsetAndMetadata> offsets = offsetsState.getOffsetsToCommit(consumer.assignment(), minTimestamp);
+            logger.debug("committing offsets async: {}", offsets);
             if (!offsets.isEmpty()) {
                 consumer.commitAsync(offsets, new OffsetCommitCallbackImpl(this, offsetsState, metrics));
             }
