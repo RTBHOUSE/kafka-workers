@@ -8,16 +8,14 @@ It provides:
  - possibility to pause and resume processing by **WorkerTask** for given partition.
 
 Additionally it supports:
-- at-least-once state and output semantics
-- backpressure
-- processing timeouts
-- handling failures
-
-Internally one Kafka Workers instance launches one consumer thread and configurable count of worker threads. Each thread can execute one or more WorkerTasks and each WorkerTask processes **WorkerRecords** from internal queue associated with given **WorkerSubpartition**.
+- at-least-once state and output semantics,
+- backpressure,
+- processing timeouts,
+- handling failures.
 
 ## Version
 
-Current version is **1.0.0**
+Current version is **1.0.1**
 
 ## Requirements
 
@@ -31,7 +29,7 @@ Releases are distributed on Maven central:
 <dependency>
     <groupId>com.rtbhouse</groupId>
     <artifactId>kafka-workers</artifactId>
-    <version>1.0.0</version>
+    <version>1.0.1</version>
 </dependency>
 ```
 

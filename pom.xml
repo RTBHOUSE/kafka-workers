@@ -7,7 +7,7 @@
     <packaging>jar</packaging>
 
     <name>kafka-workers</name>
-    <version>1.0.1-SNAPSHOT</version>
+    <version>1.0.1</version>
     <url>https://github.com/RTBHOUSE/kafka-workers</url>
 
     <description>Kafka's client library.</description>
@@ -23,6 +23,12 @@
         <developer>
             <name>Bartosz Los</name>
             <email>bartosz.los@rtbhouse.com</email>
+            <organization>RTB HOUSE</organization>
+            <organizationUrl>http://www.rtbhouse.com</organizationUrl>
+        </developer>
+        <developer>
+            <name>Tomasz Ulinski</name>
+            <email>tomasz.ulinski@rtbhouse.com</email>
             <organization>RTB HOUSE</organization>
             <organizationUrl>http://www.rtbhouse.com</organizationUrl>
         </developer>
