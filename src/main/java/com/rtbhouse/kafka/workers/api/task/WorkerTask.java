@@ -1,6 +1,5 @@
 package com.rtbhouse.kafka.workers.api.task;
 
-import com.rtbhouse.kafka.workers.api.KafkaWorkers;
 import com.rtbhouse.kafka.workers.api.WorkersConfig;
 import com.rtbhouse.kafka.workers.api.partitioner.WorkerSubpartition;
 import com.rtbhouse.kafka.workers.api.record.RecordStatusObserver;
@@ -18,7 +17,7 @@ public interface WorkerTask<K, V> {
      * @param config
      *            {@link WorkerSubpartition} subpartition associated with given task
      * @param config
-     *            {@link KafkaWorkers} configuration
+     *            {@link WorkersConfig} configuration
      */
     default void init(WorkerSubpartition subpartition, WorkersConfig config) {
     }

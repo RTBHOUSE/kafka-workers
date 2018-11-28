@@ -20,7 +20,7 @@ public interface WorkerPartitioner<K, V> {
      * @param consumerRecord
      *            consumer record read by internal {@link KafkaConsumer}
      *
-     * @return an integer between 0 and {@link #count()}-1
+     * @return an integer between 0 and {@link #count(TopicPartition)}-1
      */
     int subpartition(ConsumerRecord<K, V> consumerRecord);
 
