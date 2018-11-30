@@ -15,11 +15,11 @@ Additionally it supports:
 
 ## Version
 
-Current version is **1.0.1**
+Current version is **1.0.2**
 
 ## Requirements
 
-You need Java 8 and at least Apache Kafka 1.0 to use this library.
+You need Java 8 and at least Apache Kafka 2.0 to use this library.
 
 ## Installation
 
@@ -29,7 +29,7 @@ Releases are distributed on Maven central:
 <dependency>
     <groupId>com.rtbhouse</groupId>
     <artifactId>kafka-workers</artifactId>
-    <version>1.0.1</version>
+    <version>1.0.2</version>
 </dependency>
 ```
 
