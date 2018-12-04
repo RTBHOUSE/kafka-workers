@@ -15,7 +15,7 @@ Additionally it supports:
 
 ## Version
 
-Current version is **1.0.2**
+Current version is **1.0.3**
 
 ## Requirements
 
@@ -29,7 +29,7 @@ Releases are distributed on Maven central:
 <dependency>
     <groupId>com.rtbhouse</groupId>
     <artifactId>kafka-workers</artifactId>
-    <version>1.0.2</version>
+    <version>1.0.3</version>
 </dependency>
 ```
 
