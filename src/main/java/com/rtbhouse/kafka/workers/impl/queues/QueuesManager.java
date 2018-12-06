@@ -78,7 +78,8 @@ public class QueuesManager<K, V> implements Partitioned {
 
     public Set<TopicPartition> getPartitionsToPause(Set<TopicPartition> assigned, Set<TopicPartition> paused) {
         Set<TopicPartition> partitionsToPause = new HashSet<>();
-        if (getTotalSizeInBytes() >= config.getLong(WorkersConfig.QUEUE_TOTAL_MAX_SIZE_BYTES)) {
+        if (config.getLong(WorkersConfig.QUEUE_TOTAL_MAX_SIZE_BYTES) != null
+                && getTotalSizeInBytes() >= config.getLong(WorkersConfig.QUEUE_TOTAL_MAX_SIZE_BYTES)) {
             logger.warn("total size in bytes: {} exceeded", config.getLong(WorkersConfig.QUEUE_TOTAL_MAX_SIZE_BYTES));
             partitionsToPause.addAll(assigned);
             partitionsToPause.removeAll(paused);
@@ -88,7 +89,8 @@ public class QueuesManager<K, V> implements Partitioned {
             if (sizesInBytes.get(subpartition) >= config.getLong(WorkersConfig.QUEUE_MAX_SIZE_BYTES)
                     && !paused.contains(subpartition.topicPartition())) {
                 logger.warn("size in bytes: {} for: {} (events count: {}) exceeded",
-                        config.getLong(WorkersConfig.QUEUE_MAX_SIZE_BYTES), subpartition, queues.get(subpartition).size());
+                        config.getLong(WorkersConfig.QUEUE_MAX_SIZE_BYTES), subpartition,
+                        queues.get(subpartition).size());
                 partitionsToPause.add(subpartition.topicPartition());
             }
         }
@@ -96,7 +98,8 @@ public class QueuesManager<K, V> implements Partitioned {
     }
 
     public Set<TopicPartition> getPartitionsToResume(Set<TopicPartition> pausedPartitions) {
-        if (getTotalSizeInBytes() > config.getLong(WorkersConfig.QUEUE_TOTAL_MAX_SIZE_BYTES) / 2) {
+        if (config.getLong(WorkersConfig.QUEUE_TOTAL_MAX_SIZE_BYTES) != null
+                && getTotalSizeInBytes() >= config.getLong(WorkersConfig.QUEUE_TOTAL_MAX_SIZE_BYTES)) {
             return new HashSet<>();
         }
         Set<TopicPartition> partitionsToResume = new HashSet<>();
@@ -115,11 +118,7 @@ public class QueuesManager<K, V> implements Partitioned {
     }
 
     private long getTotalSizeInBytes() {
-        long totalSize = 0;
-        for (Long size : sizesInBytes.values()) {
-            totalSize += size;
-        }
-        return totalSize;
+        return sizesInBytes.values().stream().mapToLong(Long::longValue).sum();
     }
 
 }

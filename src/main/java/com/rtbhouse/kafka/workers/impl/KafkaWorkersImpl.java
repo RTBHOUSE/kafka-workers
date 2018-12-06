@@ -82,7 +82,8 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
         final int numWorkers = config.getInt(WorkersConfig.WORKER_THREADS_NUM);
         consumerThread = new ConsumerThread<>(config, metrics, this, queueManager, subpartitionSupplier, offsetsState);
         for (int i = 0; i < numWorkers; i++) {
-            workerThreads.add(new WorkerThread<K, V>(i, config, metrics, this, taskManager, queueManager, offsetsState));
+            workerThreads
+                    .add(new WorkerThread<K, V>(i, config, metrics, this, taskManager, queueManager, offsetsState));
         }
 
         executorService = Executors.newFixedThreadPool(1 + numWorkers);
@@ -104,8 +105,8 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
         logger.info("kafka workers blocking shutdown called");
         if (tryToSetStatus(Status.SHUTDOWN)) {
             shutdownThread.shutdown();
-            while (status != Status.CLOSED) {
-                synchronized (shutdownLock) {
+            synchronized (shutdownLock) {
+                while (status != Status.CLOSED) {
                     try {
                         shutdownLock.wait();
                     } catch (InterruptedException e) {
