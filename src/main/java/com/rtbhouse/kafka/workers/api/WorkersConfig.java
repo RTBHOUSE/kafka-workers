@@ -85,7 +85,7 @@ public class WorkersConfig extends AbstractConfig {
      */
     public static final String QUEUE_TOTAL_MAX_SIZE_BYTES = "queue.total.max.size.bytes";
     private static final String QUEUE_TOTAL_MAX_SIZE_BYTES_DOC = "Total max size in bytes for all internal queues.";
-    private static final long QUEUE_TOTAL_MAX_SIZE_BYTES_DEFAULT = 1024 * 1024 * 1024;
+    private static final Long QUEUE_TOTAL_MAX_SIZE_BYTES_DEFAULT = null;
 
     /**
      * List of {@link MetricsReporter}s which report {@code KafkaWorkers}'s metrics.

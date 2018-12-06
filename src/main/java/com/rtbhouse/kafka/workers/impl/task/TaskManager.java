@@ -101,12 +101,9 @@ public class TaskManager<K, V> implements Partitioned {
         }
 
         // waits for all threads to stop because only then could do tasks rebalance safely
-        while (getStoppedCount() != threads.size()) {
-            synchronized (rebalanceLock) {
-                // double-check
-                if (getStoppedCount() != threads.size()) {
-                    rebalanceLock.wait();
-                }
+        synchronized (rebalanceLock) {
+            while (!allThreadsStopped()) {
+                rebalanceLock.wait();
             }
         }
     }
@@ -118,14 +115,8 @@ public class TaskManager<K, V> implements Partitioned {
         }
     }
 
-    private int getStoppedCount() {
-        int stoppedCount = 0;
-        for (WorkerThread<K, V> thread : threads) {
-            if (thread.isStopped()) {
-                stoppedCount++;
-            }
-        }
-        return stoppedCount;
+    private boolean allThreadsStopped() {
+        return threads.stream().allMatch(WorkerThread::isStopped);
     }
 
 }
