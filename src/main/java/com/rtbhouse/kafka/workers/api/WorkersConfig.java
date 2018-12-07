@@ -23,55 +23,55 @@ import com.rtbhouse.kafka.workers.impl.task.WorkerThread;
 public class WorkersConfig extends AbstractConfig {
 
     /**
-     * Prefix for internal {@link KafkaConsumer} configuration used by {@link ConsumerThread}.
+     * Should be used as a prefix for internal {@link KafkaConsumer} configuration used by {@link ConsumerThread}.
      */
     public static final String CONSUMER_PREFIX = "consumer.kafka.";
 
     /**
-     * Prefix for internal {@link WorkerTask} configuration.
-     */
-    public static final String WORKER_TASK_PREFIX = "worker.task.";
-
-    /**
-     * List of kafka topics read by {@link ConsumerThread}.
+     * A list of kafka topics read by {@link ConsumerThread}.
      */
     public static final String CONSUMER_TOPICS = "consumer.topics";
-    private static final String CONSUMER_TOPICS_DOC = "List of kafka topics read by ConsumerThread.";
+    private static final String CONSUMER_TOPICS_DOC = "A list of kafka topics read by ConsumerThread.";
 
     /**
-     * Timeout in milliseconds for {@link KafkaConsumer}'s poll().
+     * The timeout in milliseconds for {@link KafkaConsumer}'s poll().
      */
     public static final String CONSUMER_POLL_TIMEOUT_MS = "consumer.poll.timeout.ms";
-    private static final String CONSUMER_POLL_TIMEOUT_MS_DOC = "Timeout in milliseconds for KafkaConsumer's poll().";
+    private static final String CONSUMER_POLL_TIMEOUT_MS_DOC = "The timeout in milliseconds for KafkaConsumer's poll().";
     private static final long CONSUMER_POLL_TIMEOUT_MS_DEFAULT = Duration.of(1, ChronoUnit.SECONDS).toMillis();
 
     /**
-     * Interval in milliseconds with which to commit processed offsets.
+     * The frequency in milliseconds that the processed offsets are committed to Kafka.
      */
     public static final String CONSUMER_COMMIT_INTERVAL_MS = "consumer.commit.interval.ms";
-    private static final String CONSUMER_COMMIT_INTERVAL_MS_DOC = "Interval in milliseconds with which to commit processed offsets.";
+    private static final String CONSUMER_COMMIT_INTERVAL_MS_DOC = "The frequency in milliseconds that the processed offsets are committed to Kafka.";
     private static final long CONSUMER_COMMIT_INTERVAL_MS_DEFAULT = Duration.of(10, ChronoUnit.SECONDS).toMillis();
 
     /**
-     * Timeout in milliseconds for record to be successfully processed.
+     * The timeout in milliseconds for record to be successfully processed.
      */
     public static final String CONSUMER_PROCESSING_TIMEOUT_MS = "consumer.processing.timeout.ms";
-    private static final String CONSUMER_PROCESSING_TIMEOUT_MS_DOC = "Timeout in milliseconds for record to be successfully processed.";
+    private static final String CONSUMER_PROCESSING_TIMEOUT_MS_DOC = "The timeout in milliseconds for record to be successfully processed.";
     private static final long CONSUMER_PROCESSING_TIMEOUT_MS_DEFAULT = Duration.of(5, ChronoUnit.MINUTES).toMillis();
 
     /**
-     * Number of {@link WorkerThread}s per one {@link KafkaWorkers} instance.
+     * The number of {@link WorkerThread}s per one {@link KafkaWorkers} instance.
      */
     public static final String WORKER_THREADS_NUM = "worker.threads.num";
-    private static final String WORKER_THREADS_NUM_DOC = "Number of WorkerThreads per one Kafka Workers instance.";
+    private static final String WORKER_THREADS_NUM_DOC = "The number of WorkerThreads per one Kafka Workers instance.";
     private static final int WORKER_THREADS_NUM_DEFAULT = 1;
 
     /**
-     * Sleep time in milliseconds for {@link WorkerThread} in case of not accepted tasks.
+     * The time in milliseconds to wait for {@link WorkerThread} in case of not accepted tasks.
      */
     public static final String WORKER_SLEEP_MS = "worker.sleep.ms";
-    private static final String WORKER_SLEEP_MS_DOC = "Sleep time in milliseconds for WorkerThread in case of not accepted tasks.";
+    private static final String WORKER_SLEEP_MS_DOC = "The time in milliseconds to wait for WorkerThread in case of not accepted tasks.";
     private static final long WORKER_SLEEP_MS_DEFAULT = Duration.of(1, ChronoUnit.SECONDS).toMillis();
+
+    /**
+     * Could be used as a prefix for internal {@link WorkerTask} configuration.
+     */
+    public static final String WORKER_TASK_PREFIX = "worker.task.";
 
     /**
      * Max size in bytes for single {@link WorkerSubpartition}'s internal queue.
@@ -88,7 +88,7 @@ public class WorkersConfig extends AbstractConfig {
     private static final Long QUEUE_TOTAL_MAX_SIZE_BYTES_DEFAULT = null;
 
     /**
-     * List of {@link MetricsReporter}s which report {@code KafkaWorkers}'s metrics.
+     * A list of {@link MetricsReporter}s which report {@code KafkaWorkers}'s metrics.
      */
     public static final String METRIC_REPORTER_CLASSES = CommonClientConfigs.METRIC_REPORTER_CLASSES_CONFIG;
     private static final String METRIC_REPORTER_CLASSES_DOC = CommonClientConfigs.METRIC_REPORTER_CLASSES_DOC;

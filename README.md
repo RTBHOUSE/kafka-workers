@@ -15,7 +15,7 @@ Additionally it supports:
 
 ## Version
 
-Current version is **1.0.3**
+Current version is **1.0.4**
 
 ## Requirements
 
@@ -29,7 +29,7 @@ Releases are distributed on Maven central:
 <dependency>
     <groupId>com.rtbhouse</groupId>
     <artifactId>kafka-workers</artifactId>
-    <version>1.0.3</version>
+    <version>1.0.4</version>
 </dependency>
 ```
 
@@ -97,7 +97,7 @@ Usage example:
 <tr>
    <td>consumer.commit.interval.ms</td>
    </td>
-   <td>The frequency in milliseconds that the processed offsets are ommitted to Kafka </td>
+   <td>The frequency in milliseconds that the processed offsets are committed to Kafka.</td>
    </td>
    <td>long</td>
    </td>
@@ -133,7 +133,6 @@ Usage example:
     consumer.kafka.group.id = my-workers
     consumer.kafka.key.deserializer = org.apache.kafka.common.serialization.BytesDeserializer
     consumer.kafka.value.deserializer = org.apache.kafka.common.serialization.BytesDeserializer
-
    </td>
    </td>
    <td></td>
