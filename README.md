@@ -75,6 +75,133 @@ Usage example:
     kafkaWorkers.start();
  }
 ```
+
+## Configuration
+
+<table class="data-table"><tbody>
+<tr>
+   <th>Name</th>
+   <th>Description</th>
+   <th>Type</th>
+   <th>Default</th>
+</tr>
+<tr>
+   <td>consumer.topics</td>
+   </td>
+   <td>A list of kafka topics read by ConsumerThread.</td>
+   </td>
+   <td>list</td>
+   </td>
+   <td></td>
+</tr>
+<tr>
+   <td>consumer.commit.interval.ms</td>
+   </td>
+   <td>The frequency in milliseconds that the processed offsets are ommitted to Kafka </td>
+   </td>
+   <td>long</td>
+   </td>
+   <td>10000</td>
+   </td>
+</tr>
+<tr>
+   <td>consumer.processing.timeout.ms</td>
+   </td>
+   <td>The timeout in milliseconds for record to be successfully processed.</td>
+   </td>
+   <td>long</td>
+   </td>
+   <td>300000</td>
+   </td>
+</tr>
+<tr>
+   <td>consumer.poll.timeout.ms</td>
+   </td>
+   <td>The time in milliseconds spent waiting in poll if data is not available in the buffer. If 0, returns immediately with any records that are available currently in the buffer, else returns empty.</td>
+   </td>
+   <td>long</td>
+   </td>
+   <td>1000</td>
+   </td>
+</tr>
+<tr>
+   <td>consumer.kafka</td>
+   </td>
+   <td>Should be used as a prefix for internal kafka consumer configuration. Usage example:
+
+    consumer.kafka.bootstrap.servers = localhost:9192
+    consumer.kafka.group.id = my-workers
+    consumer.kafka.key.deserializer = org.apache.kafka.common.serialization.BytesDeserializer
+    consumer.kafka.value.deserializer = org.apache.kafka.common.serialization.BytesDeserializer
+
+   </td>
+   </td>
+   <td></td>
+   </td>
+   <td></td>
+</tr>
+<tr>
+   <td>worker.threads.num</td>
+   </td>
+   <td>The number of WorkerThreads per one Kafka Workers instance.</td>
+   </td>
+   <td>int</td>
+   </td>
+   <td>1</td>
+   </td>
+</tr>
+<tr>
+   <td>worker.sleep.ms</td>
+   </td>
+   <td>The time in milliseconds to wait for WorkerThread in case of not accepted tasks.</td>
+   </td>
+   <td>long</td>
+   </td>
+   <td>1000</td>
+   </td>
+</tr>
+<tr>
+   <td>worker.task</td>
+   </td>
+   <td>Could be used as a prefix for internal task configuration.
+   </td>
+   </td>
+   <td></td>
+   </td>
+   <td></td>
+</tr>
+<tr>
+   <td>queue.max.size.bytes</td>
+   </td>
+   <td>This configuration controls the max size in bytes for single WorkerSubpartition's internal queue.</td>
+   </td>
+   <td>long</td>
+   </td>
+   <td>268435456</td>
+   </td>
+</tr>
+<tr>
+   <td>queue.total.max.size.bytes</td>
+   </td>
+   <td>This configuration controls the total max size in bytes for all internal queues.</td>
+   </td>
+   <td>long</td>
+   </td>
+   <td>null</td>
+   </td>
+</tr>
+<tr>
+   <td>metric.reporters</td>
+   </td>
+   <td>A list of classes to use as metrics reporters. Implementing the <code>org.apache.kafka.common.metrics.MetricsReporter</code> interface allows plugging in classes that will be notified of new metric creation. The JmxReporter is always included to register JMX statistics.</td>
+   </td>
+   <td>list</td>
+   </td>
+   <td>""</td>
+   </td>
+</tr>
+</tbody></table>
+
 ## Internals
 
 Internally one Kafka Workers instance launches one consumer thread and configurable count of worker threads. Each thread can execute one or more WorkerTasks and each WorkerTask processes WorkerRecords from internal queue associated with given WorkerSubpartition. Kafka Workers ensures by its offsets state that only continuously processed offsets are commited. 
