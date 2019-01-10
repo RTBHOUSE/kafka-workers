@@ -12,6 +12,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.common.TopicPartition;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -21,7 +22,6 @@ import org.mockito.junit.MockitoJUnitRunner;
 import com.rtbhouse.kafka.workers.api.WorkersConfig;
 import com.rtbhouse.kafka.workers.api.WorkersException;
 import com.rtbhouse.kafka.workers.api.partitioner.RoundRobinPartitioner;
-import com.rtbhouse.kafka.workers.api.record.RecordStatusObserver;
 import com.rtbhouse.kafka.workers.api.record.WorkerRecord;
 import com.rtbhouse.kafka.workers.api.task.WorkerTask;
 import com.rtbhouse.kafka.workers.api.task.WorkerTaskFactory;
@@ -51,6 +51,9 @@ public class TaskManagerTest {
     @Mock
     private QueuesManager<byte[], byte[]> queueManager;
 
+    @Mock
+    private KafkaProducer<byte[], byte[]> kafkaProducer;
+
     @Test
     public void shouldRebalanceTasks() throws InterruptedException {
 
@@ -66,7 +69,7 @@ public class TaskManagerTest {
         TaskManager<byte[], byte[]> taskManager = new TaskManager<>(config, metrics, taskFactory, subpartitionSupplier, threads);
 
         for (int i = 0; i < WORKER_THREADS_NUM; i++) {
-            threads.add(new WorkerThread<>(i, config, metrics, workers, taskManager, queueManager, offsetsState));
+            threads.add(new WorkerThread<>(i, config, metrics, workers, taskManager, queueManager, offsetsState, kafkaProducer));
         }
         ExecutorService executorService = Executors.newFixedThreadPool(WORKER_THREADS_NUM);
         for (WorkerThread<byte[], byte[]> workerThread : threads) {
@@ -103,17 +106,12 @@ public class TaskManagerTest {
 
         @Override
         public WorkerTask<byte[], byte[]> createTask(WorkersConfig config) {
-            return new WorkerTask<byte[], byte[]>() {
-
-                @Override
-                public void process(WorkerRecord<byte[], byte[]> record, RecordStatusObserver observer) {
-                    try {
-                        Thread.sleep(100);
-                    } catch (InterruptedException e) {
-                        throw new WorkersException(e);
-                    }
+            return (record, observer) -> {
+                try {
+                    Thread.sleep(100);
+                } catch (InterruptedException e) {
+                    throw new WorkersException(e);
                 }
-
             };
         }
 

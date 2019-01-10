@@ -1,6 +1,7 @@
 package com.rtbhouse.kafka.workers.impl.task;
 
 import com.rtbhouse.kafka.workers.api.WorkersConfig;
+import com.rtbhouse.kafka.workers.api.WorkersException;
 import com.rtbhouse.kafka.workers.api.partitioner.WorkerSubpartition;
 import com.rtbhouse.kafka.workers.api.record.RecordStatusObserver;
 import com.rtbhouse.kafka.workers.api.record.WorkerRecord;
@@ -44,7 +45,13 @@ public class WorkerTaskImpl<K, V> implements WorkerTask<K, V> {
     @Override
     public void process(WorkerRecord<K, V> record, RecordStatusObserver observer) {
         metrics.recordSensor(WorkersMetrics.PROCESSING_OFFSET_METRIC, subpartition, record.offset());
-        task.process(record, observer);
+        try {
+            task.process(record, observer);
+        } catch (WorkersException e) {
+            throw e;
+        } catch (Exception e) {
+            observer.onFailure(e);
+        }
     }
 
     @Override

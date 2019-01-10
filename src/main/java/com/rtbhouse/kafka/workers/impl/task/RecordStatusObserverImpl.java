@@ -1,43 +1,65 @@
 package com.rtbhouse.kafka.workers.impl.task;
 
-import com.rtbhouse.kafka.workers.api.partitioner.WorkerSubpartition;
+import static com.rtbhouse.kafka.workers.impl.task.RecordStatusObserverImpl.RecordStatus.FAILED;
+import static com.rtbhouse.kafka.workers.impl.task.RecordStatusObserverImpl.RecordStatus.PROCESSING;
+import static com.rtbhouse.kafka.workers.impl.task.RecordStatusObserverImpl.RecordStatus.SUCCEEDED;
+
+import java.util.concurrent.atomic.AtomicReference;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.rtbhouse.kafka.workers.api.record.RecordProcessingOnFailureAction;
+import com.rtbhouse.kafka.workers.api.record.RecordProcessingOnSuccessAction;
 import com.rtbhouse.kafka.workers.api.record.RecordStatusObserver;
 import com.rtbhouse.kafka.workers.api.record.WorkerRecord;
-import com.rtbhouse.kafka.workers.impl.errors.ProcessingFailureException;
-import com.rtbhouse.kafka.workers.impl.metrics.WorkersMetrics;
-import com.rtbhouse.kafka.workers.impl.offsets.OffsetsState;
 
-public class RecordStatusObserverImpl implements RecordStatusObserver {
+public class RecordStatusObserverImpl<K, V> implements RecordStatusObserver {
 
-    private final WorkerSubpartition subpartition;
-    private final long offset;
+    enum RecordStatus {
+        PROCESSING,
+        SUCCEEDED,
+        FAILED
+    }
 
-    private final WorkerThread<?, ?> workerThread;
-    private final OffsetsState offsetsState;
-    private final WorkersMetrics metrics;
+    private static final Logger logger = LoggerFactory.getLogger(RecordStatusObserverImpl.class);
+
+    private final WorkerRecord<K, V> record;
+    private final AtomicReference<RecordStatus> recordStatus;
+    private final RecordProcessingOnSuccessAction<K, V> onSuccessAction;
+    private final RecordProcessingOnFailureAction<K, V> onFailureAction;
 
     public RecordStatusObserverImpl(
-            WorkerRecord<?, ?> record,
-            WorkerThread<?, ?> workerThread,
-            OffsetsState offsetsState,
-            WorkersMetrics metrics) {
-        this.subpartition = record.workerSubpartition();
-        this.offset = record.offset();
-        this.workerThread = workerThread;
-        this.offsetsState = offsetsState;
-        this.metrics = metrics;
+            WorkerRecord<K, V> record,
+            RecordProcessingOnSuccessAction<K, V> onSuccessAction,
+            RecordProcessingOnFailureAction<K, V> onFailureAction) {
+        this.record = record;
+        this.recordStatus = new AtomicReference<>(PROCESSING);
+        this.onSuccessAction = onSuccessAction;
+        this.onFailureAction = onFailureAction;
     }
 
     @Override
     public void onSuccess() {
-        metrics.recordSensor(WorkersMetrics.PROCESSED_OFFSET_METRIC, subpartition, offset);
-        offsetsState.updateProcessed(subpartition.topicPartition(), offset);
+        if (recordStatus.compareAndSet(PROCESSING, SUCCEEDED)) {
+            onSuccessAction.handleSuccess(record);
+        } else {
+            logIllegalObserverUsage(recordStatus.get(), "onSuccess");
+        }
     }
 
     @Override
     public void onFailure(Exception exception) {
-        workerThread.shutdown(new ProcessingFailureException(
-                "record processing failed, subpartition: " + subpartition + " , offset: " + offset, exception));
+        if (recordStatus.compareAndSet(PROCESSING, FAILED)) {
+            onFailureAction.handleFailure(record, exception);
+        } else {
+            logIllegalObserverUsage(recordStatus.get(), "onFailure");
+        }
+    }
+
+    private void logIllegalObserverUsage(RecordStatus recordStatus, String method) {
+        logger.warn("Record {} is marked as {}, but observer's {} method has been called which should not happen",
+                record, recordStatus, method);
     }
 
 }
