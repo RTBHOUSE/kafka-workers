@@ -61,6 +61,7 @@
         <maven.compiler.plugin.version>3.6.0</maven.compiler.plugin.version>
         <maven.exec.plugin.version>1.6.0</maven.exec.plugin.version>
         <maven.javadoc.plugin.version>2.9.1</maven.javadoc.plugin.version>
+        <maven.jar.plugin.version>3.0.2</maven.jar.plugin.version>
         <maven.gpg.plugin.version>1.5</maven.gpg.plugin.version>
         <build.helper.maven.plugin.version>1.12</build.helper.maven.plugin.version>
         <maven.clean.plugin.version>3.0.0</maven.clean.plugin.version>
@@ -202,6 +203,19 @@
                         <id>attach-javadocs</id>
                         <goals>
                             <goal>jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>${maven.jar.plugin.version}</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>test-jar</goal>
                         </goals>
                     </execution>
                 </executions>
