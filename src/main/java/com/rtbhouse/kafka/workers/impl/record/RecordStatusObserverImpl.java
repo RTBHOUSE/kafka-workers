@@ -1,28 +1,24 @@
-package com.rtbhouse.kafka.workers.impl.task;
+package com.rtbhouse.kafka.workers.impl.record;
 
-import static com.rtbhouse.kafka.workers.impl.task.RecordStatusObserverImpl.RecordStatus.FAILED;
-import static com.rtbhouse.kafka.workers.impl.task.RecordStatusObserverImpl.RecordStatus.PROCESSING;
-import static com.rtbhouse.kafka.workers.impl.task.RecordStatusObserverImpl.RecordStatus.SUCCEEDED;
+import static com.rtbhouse.kafka.workers.impl.record.RecordStatusObserverImpl.RecordStatus.FAILED;
+import static com.rtbhouse.kafka.workers.impl.record.RecordStatusObserverImpl.RecordStatus.PROCESSING;
+import static com.rtbhouse.kafka.workers.impl.record.RecordStatusObserverImpl.RecordStatus.SUCCEEDED;
 
 import java.util.concurrent.atomic.AtomicReference;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.rtbhouse.kafka.workers.api.record.RecordProcessingOnFailureAction;
-import com.rtbhouse.kafka.workers.api.record.RecordProcessingOnSuccessAction;
 import com.rtbhouse.kafka.workers.api.record.RecordStatusObserver;
 import com.rtbhouse.kafka.workers.api.record.WorkerRecord;
+import com.rtbhouse.kafka.workers.impl.errors.IllegalObserverUsageException;
+import com.rtbhouse.kafka.workers.impl.record.action.RecordProcessingOnFailureAction;
+import com.rtbhouse.kafka.workers.impl.record.action.RecordProcessingOnSuccessAction;
 
 public class RecordStatusObserverImpl<K, V> implements RecordStatusObserver {
 
-    enum RecordStatus {
+    public enum RecordStatus {
         PROCESSING,
         SUCCEEDED,
         FAILED
     }
-
-    private static final Logger logger = LoggerFactory.getLogger(RecordStatusObserverImpl.class);
 
     private final WorkerRecord<K, V> record;
     private final AtomicReference<RecordStatus> recordStatus;
@@ -44,7 +40,7 @@ public class RecordStatusObserverImpl<K, V> implements RecordStatusObserver {
         if (recordStatus.compareAndSet(PROCESSING, SUCCEEDED)) {
             onSuccessAction.handleSuccess(record);
         } else {
-            logIllegalObserverUsage(recordStatus.get(), "onSuccess");
+            throw new IllegalObserverUsageException(record, recordStatus.get(), "onSuccess");
         }
     }
 
@@ -53,13 +49,8 @@ public class RecordStatusObserverImpl<K, V> implements RecordStatusObserver {
         if (recordStatus.compareAndSet(PROCESSING, FAILED)) {
             onFailureAction.handleFailure(record, exception);
         } else {
-            logIllegalObserverUsage(recordStatus.get(), "onFailure");
+            throw new IllegalObserverUsageException(record, recordStatus.get(), "onFailure", exception);
         }
-    }
-
-    private void logIllegalObserverUsage(RecordStatus recordStatus, String method) {
-        logger.warn("Record {} is marked as {}, but observer's {} method has been called which should not happen",
-                record, recordStatus, method);
     }
 
 }

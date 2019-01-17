@@ -1,32 +1,23 @@
 package com.rtbhouse.kafka.workers.impl.task;
 
-import static com.rtbhouse.kafka.workers.api.WorkersConfig.RECORD_PROCESSING_FALLBACK_TOPIC;
-import static com.rtbhouse.kafka.workers.api.record.RecordProcessingOnFailureAction.FailureActionName.FALLBACK_TOPIC;
-
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
 
-import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.clients.producer.RecordMetadata;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.rtbhouse.kafka.workers.api.WorkersConfig;
 import com.rtbhouse.kafka.workers.api.WorkersException;
-import com.rtbhouse.kafka.workers.api.partitioner.WorkerSubpartition;
-import com.rtbhouse.kafka.workers.api.record.RecordProcessingOnFailureAction;
-import com.rtbhouse.kafka.workers.api.record.RecordProcessingOnFailureAction.FailureActionName;
-import com.rtbhouse.kafka.workers.api.record.RecordProcessingOnSuccessAction;
 import com.rtbhouse.kafka.workers.api.record.WorkerRecord;
 import com.rtbhouse.kafka.workers.impl.AbstractWorkersThread;
 import com.rtbhouse.kafka.workers.impl.KafkaWorkersImpl;
-import com.rtbhouse.kafka.workers.impl.errors.ProcessingFailureException;
 import com.rtbhouse.kafka.workers.impl.metrics.WorkersMetrics;
 import com.rtbhouse.kafka.workers.impl.offsets.OffsetsState;
 import com.rtbhouse.kafka.workers.impl.queues.QueuesManager;
+import com.rtbhouse.kafka.workers.impl.record.RecordStatusObserverImpl;
+import com.rtbhouse.kafka.workers.impl.record.action.RecordProcessingActionFactory;
+import com.rtbhouse.kafka.workers.impl.record.action.RecordProcessingOnFailureAction;
+import com.rtbhouse.kafka.workers.impl.record.action.RecordProcessingOnSuccessAction;
 
 public class WorkerThread<K, V> extends AbstractWorkersThread {
 
@@ -35,10 +26,9 @@ public class WorkerThread<K, V> extends AbstractWorkersThread {
     private final int workerId;
     private final TaskManager<K, V> taskManager;
     private final QueuesManager<K, V> queueManager;
-    private final OffsetsState offsetsState;
     private final List<WorkerTaskImpl<K, V>> tasks = new ArrayList<>();
-    private final KafkaProducer<K, V> kafkaProducer;
-    private final String fallbackTopic;
+    private final RecordProcessingOnSuccessAction<K, V> successAction;
+    private final RecordProcessingOnFailureAction<K, V> failureAction;
 
     private volatile boolean waiting = false;
 
@@ -49,23 +39,14 @@ public class WorkerThread<K, V> extends AbstractWorkersThread {
             KafkaWorkersImpl<K, V> workers,
             TaskManager<K, V> taskManager,
             QueuesManager<K, V> queueManager,
-            OffsetsState offsetsState,
-            KafkaProducer<K, V> kafkaProducer) {
+            OffsetsState offsetsState) {
         super("worker-thread-" + workerId, config, metrics, workers);
         this.workerId = workerId;
         this.taskManager = taskManager;
         this.queueManager = queueManager;
-        this.offsetsState = offsetsState;
-        this.kafkaProducer = kafkaProducer;
-        this.fallbackTopic = fallbackTopic();
-    }
-
-    private String fallbackTopic() {
-        if (config.getFailureActionName() == FALLBACK_TOPIC) {
-            return config.getString(RECORD_PROCESSING_FALLBACK_TOPIC);
-        } else {
-            return null;
-        }
+        var actionFactory = new RecordProcessingActionFactory<>(config, metrics, offsetsState, this);
+        this.successAction = actionFactory.createSuccessAction();
+        this.failureAction = actionFactory.createFailureAction();
     }
 
     @Override
@@ -93,8 +74,6 @@ public class WorkerThread<K, V> extends AbstractWorkersThread {
                     throw new WorkersException("peekRecord and pollRecord are different");
                 }
 
-                RecordProcessingOnSuccessAction<K, V> successAction = createSuccessAction();
-                RecordProcessingOnFailureAction<K, V> failureAction = createFailureAction();
                 RecordStatusObserverImpl<K, V> observer = new RecordStatusObserverImpl<>(pollRecord, successAction, failureAction);
                 task.process(pollRecord, observer);
             }
@@ -105,63 +84,6 @@ public class WorkerThread<K, V> extends AbstractWorkersThread {
             // all records are not accepted to process so thread goes to sleep (again to avoid busy waiting)
             Thread.sleep(config.getLong(WorkersConfig.WORKER_SLEEP_MS));
         }
-    }
-
-    private RecordProcessingOnSuccessAction<K, V> createSuccessAction() {
-        return this::markRecordProcessed;
-    }
-
-    private void markRecordProcessed(WorkerRecord<K, V> record) {
-        WorkerSubpartition subpartition = record.workerSubpartition();
-        long offset = record.offset();
-        metrics.recordSensor(WorkersMetrics.PROCESSED_OFFSET_METRIC, subpartition, offset);
-        offsetsState.updateProcessed(subpartition.topicPartition(), offset);
-    }
-
-    private RecordProcessingOnFailureAction<K, V> createFailureAction() {
-        FailureActionName actionName = config.getFailureActionName();
-        RecordProcessingOnFailureAction<K, V> innerAction;
-
-        switch (actionName) {
-            case SHUTDOWN:
-                innerAction = (record, exception) -> {
-                    shutdown(new ProcessingFailureException(
-                            "record processing failed, subpartition: " + record.workerSubpartition() +
-                                    " , offset: " + record.offset(), exception));
-                };
-                break;
-            case SKIP:
-                innerAction = (record, exception) -> {
-                    //TODO: increment skipped records metric
-                    markRecordProcessed(record);
-                };
-                break;
-            case FALLBACK_TOPIC:
-                innerAction = (record, exception) -> {
-                    sendToFallbackTopic(record)
-                            .thenRun(() -> this.markRecordProcessed(record));
-                };
-                break;
-            default:
-                throw new IllegalStateException(String.format("Action name [%s] not supported", actionName.name()));
-        }
-
-        return new BaseFailureAction<>(actionName, innerAction);
-    }
-
-    private CompletionStage<RecordMetadata> sendToFallbackTopic(WorkerRecord<K, V> record) {
-        CompletableFuture<RecordMetadata> completableFuture = new CompletableFuture<>();
-        kafkaProducer.send(new ProducerRecord<>(fallbackTopic, record.key(), record.value()),
-                (metadata, exception) -> {
-                    if (exception == null) {
-                        completableFuture.complete(metadata);
-                    } else {
-                        logger.error("Cannot send a record {} to a fallback topic:",
-                                record, fallbackTopic, exception);
-                        completableFuture.completeExceptionally(exception);
-                    }
-                });
-        return completableFuture;
     }
 
     @Override

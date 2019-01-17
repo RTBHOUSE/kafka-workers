@@ -1,7 +1,9 @@
 package com.rtbhouse.kafka.workers.api;
 
-import static com.rtbhouse.kafka.workers.api.record.RecordProcessingOnFailureAction.FailureActionName.FALLBACK_TOPIC;
-import static com.rtbhouse.kafka.workers.api.record.RecordProcessingOnFailureAction.FailureActionName.SHUTDOWN;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+import static com.rtbhouse.kafka.workers.api.record.action.FailureActionName.FALLBACK_TOPIC;
+import static com.rtbhouse.kafka.workers.api.record.action.FailureActionName.SHUTDOWN;
 
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
@@ -17,7 +19,7 @@ import org.apache.kafka.common.config.ConfigDef.Type;
 import org.apache.kafka.common.metrics.MetricsReporter;
 
 import com.rtbhouse.kafka.workers.api.partitioner.WorkerSubpartition;
-import com.rtbhouse.kafka.workers.api.record.RecordProcessingOnFailureAction.FailureActionName;
+import com.rtbhouse.kafka.workers.api.record.action.FailureActionName;
 import com.rtbhouse.kafka.workers.api.task.WorkerTask;
 import com.rtbhouse.kafka.workers.impl.consumer.ConsumerThread;
 import com.rtbhouse.kafka.workers.impl.task.WorkerThread;
@@ -109,6 +111,8 @@ public class WorkersConfig extends AbstractConfig {
             " will be sent in case of processing failure (%s = %s)", RECORD_PROCESSING_FAILURE_ACTION, FALLBACK_TOPIC);
     private static final String RECORD_PROCESSING_FALLBACK_TOPIC_DEFAULT = null;
 
+    public static final String RECORD_PROCESSING_FALLBACK_KAFKA_PRODUCER_PREFIX = "record.processing.fallback.producer.kafka.";
+
     private static final ConfigDef CONFIG;
 
     static {
@@ -171,6 +175,21 @@ public class WorkersConfig extends AbstractConfig {
 
     public WorkersConfig(final Map<?, ?> props) {
         super(CONFIG, props);
+        checkRecordProcessingConfig();
+    }
+
+    private void checkRecordProcessingConfig() {
+        FailureActionName failureActionName = getFailureActionName();
+        checkNotNull(failureActionName, "failureActionName cannot be null");
+        if (failureActionName == FALLBACK_TOPIC) {
+            var fallbackTopic = getString(RECORD_PROCESSING_FALLBACK_TOPIC);
+            checkNotNull(fallbackTopic, "Missing [%s] parameter in configuration",
+                    RECORD_PROCESSING_FALLBACK_TOPIC);
+            var kafkaProducerConfigs = getFallbackKafkaProducerConfigs();
+            checkState(kafkaProducerConfigs != null && !kafkaProducerConfigs.isEmpty(),
+                    "Missing [%s*] parameter(s) in configuration",
+                    RECORD_PROCESSING_FALLBACK_KAFKA_PRODUCER_PREFIX);
+        }
     }
 
     public Map<String, Object> getConsumerConfigs() {
@@ -179,6 +198,10 @@ public class WorkersConfig extends AbstractConfig {
 
     public Map<String, Object> getWorkerTaskConfigs() {
         return originalsWithPrefix(WORKER_TASK_PREFIX);
+    }
+
+    public Map<String, Object> getFallbackKafkaProducerConfigs() {
+        return originalsWithPrefix(RECORD_PROCESSING_FALLBACK_KAFKA_PRODUCER_PREFIX);
     }
 
     public FailureActionName getFailureActionName() {
