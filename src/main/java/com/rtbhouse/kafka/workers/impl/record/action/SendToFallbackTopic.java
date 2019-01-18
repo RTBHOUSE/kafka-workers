@@ -33,7 +33,10 @@ public class SendToFallbackTopic<K, V> extends BaseAction<K, V> implements Recor
     @Override
     public void handleFailure(WorkerRecord<K, V> record, Exception exception) {
         try {
-            kafkaProducer.send(new ProducerRecord<>(fallbackTopic, record.key(), record.value())).get();
+            var producerRecord = new ProducerRecord<>(fallbackTopic, null,
+                    record.key(), record.value(), record.headers());
+            //TODO: send async
+            kafkaProducer.send(producerRecord).get();
         } catch (InterruptedException | ExecutionException e) {
             throw new RecordProcessingActionException(e);
         }
