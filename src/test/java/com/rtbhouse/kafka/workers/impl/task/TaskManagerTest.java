@@ -1,5 +1,6 @@
 package com.rtbhouse.kafka.workers.impl.task;
 
+import static com.rtbhouse.kafka.workers.api.record.action.FailureActionName.SHUTDOWN;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.any;
@@ -13,6 +14,7 @@ import java.util.concurrent.Executors;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.TopicPartition;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
@@ -21,7 +23,6 @@ import org.mockito.junit.MockitoJUnitRunner;
 import com.rtbhouse.kafka.workers.api.WorkersConfig;
 import com.rtbhouse.kafka.workers.api.WorkersException;
 import com.rtbhouse.kafka.workers.api.partitioner.RoundRobinPartitioner;
-import com.rtbhouse.kafka.workers.api.record.RecordStatusObserver;
 import com.rtbhouse.kafka.workers.api.record.WorkerRecord;
 import com.rtbhouse.kafka.workers.api.task.WorkerTask;
 import com.rtbhouse.kafka.workers.api.task.WorkerTaskFactory;
@@ -50,6 +51,11 @@ public class TaskManagerTest {
 
     @Mock
     private QueuesManager<byte[], byte[]> queueManager;
+
+    @Before
+    public void setupMocks() {
+        when(config.getFailureActionName()).thenReturn(SHUTDOWN);
+    }
 
     @Test
     public void shouldRebalanceTasks() throws InterruptedException {
@@ -103,17 +109,12 @@ public class TaskManagerTest {
 
         @Override
         public WorkerTask<byte[], byte[]> createTask(WorkersConfig config) {
-            return new WorkerTask<byte[], byte[]>() {
-
-                @Override
-                public void process(WorkerRecord<byte[], byte[]> record, RecordStatusObserver observer) {
-                    try {
-                        Thread.sleep(100);
-                    } catch (InterruptedException e) {
-                        throw new WorkersException(e);
-                    }
+            return (record, observer) -> {
+                try {
+                    Thread.sleep(100);
+                } catch (InterruptedException e) {
+                    throw new WorkersException(e);
                 }
-
             };
         }
 

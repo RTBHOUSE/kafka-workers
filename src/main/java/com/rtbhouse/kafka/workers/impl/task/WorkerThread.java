@@ -14,6 +14,10 @@ import com.rtbhouse.kafka.workers.impl.KafkaWorkersImpl;
 import com.rtbhouse.kafka.workers.impl.metrics.WorkersMetrics;
 import com.rtbhouse.kafka.workers.impl.offsets.OffsetsState;
 import com.rtbhouse.kafka.workers.impl.queues.QueuesManager;
+import com.rtbhouse.kafka.workers.impl.record.RecordStatusObserverImpl;
+import com.rtbhouse.kafka.workers.impl.record.action.RecordProcessingActionFactory;
+import com.rtbhouse.kafka.workers.impl.record.action.RecordProcessingOnFailureAction;
+import com.rtbhouse.kafka.workers.impl.record.action.RecordProcessingOnSuccessAction;
 
 public class WorkerThread<K, V> extends AbstractWorkersThread {
 
@@ -22,8 +26,9 @@ public class WorkerThread<K, V> extends AbstractWorkersThread {
     private final int workerId;
     private final TaskManager<K, V> taskManager;
     private final QueuesManager<K, V> queueManager;
-    private final OffsetsState offsetsState;
     private final List<WorkerTaskImpl<K, V>> tasks = new ArrayList<>();
+    private final RecordProcessingOnSuccessAction<K, V> successAction;
+    private final RecordProcessingOnFailureAction<K, V> failureAction;
 
     private volatile boolean waiting = false;
 
@@ -39,7 +44,9 @@ public class WorkerThread<K, V> extends AbstractWorkersThread {
         this.workerId = workerId;
         this.taskManager = taskManager;
         this.queueManager = queueManager;
-        this.offsetsState = offsetsState;
+        var actionFactory = new RecordProcessingActionFactory<>(config, metrics, offsetsState, this);
+        this.successAction = actionFactory.createSuccessAction();
+        this.failureAction = actionFactory.createFailureAction();
     }
 
     @Override
@@ -66,12 +73,9 @@ public class WorkerThread<K, V> extends AbstractWorkersThread {
                 if (pollRecord == null || !pollRecord.equals(peekRecord)) {
                     throw new WorkersException("peekRecord and pollRecord are different");
                 }
-                try {
-                    task.process(pollRecord, new RecordStatusObserverImpl(pollRecord, this, offsetsState, metrics));
-                } catch (Exception e) {
-                    logger.error("Exception when processing record: {}", pollRecord.toString());
-                    throw e;
-                }
+
+                RecordStatusObserverImpl<K, V> observer = new RecordStatusObserverImpl<>(pollRecord, successAction, failureAction);
+                task.process(pollRecord, observer);
             }
         }
         if (accepted == 0) {
