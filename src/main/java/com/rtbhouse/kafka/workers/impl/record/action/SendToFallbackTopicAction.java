@@ -13,14 +13,14 @@ import com.rtbhouse.kafka.workers.impl.errors.RecordProcessingActionException;
 import com.rtbhouse.kafka.workers.impl.metrics.WorkersMetrics;
 import com.rtbhouse.kafka.workers.impl.offsets.OffsetsState;
 
-public class SendToFallbackTopic<K, V> extends BaseAction<K, V> implements RecordProcessingOnFailureAction<K, V> {
+public class SendToFallbackTopicAction<K, V> extends BaseAction<K, V> implements RecordProcessingOnFailureAction<K, V> {
 
     private final KafkaProducer<K, V> kafkaProducer;
 
     private final String fallbackTopic;
 
-    public SendToFallbackTopic(WorkersConfig config, WorkersMetrics metrics, OffsetsState offsetsState,
-                               KafkaProducer<K, V> kafkaProducer) {
+    public SendToFallbackTopicAction(WorkersConfig config, WorkersMetrics metrics, OffsetsState offsetsState,
+                                     KafkaProducer<K, V> kafkaProducer) {
         super(config, metrics, offsetsState);
         this.fallbackTopic = fallbackTopic();
         this.kafkaProducer = kafkaProducer;

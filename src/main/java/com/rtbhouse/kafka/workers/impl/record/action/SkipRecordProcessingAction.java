@@ -5,14 +5,15 @@ import com.rtbhouse.kafka.workers.api.record.WorkerRecord;
 import com.rtbhouse.kafka.workers.impl.metrics.WorkersMetrics;
 import com.rtbhouse.kafka.workers.impl.offsets.OffsetsState;
 
-public class MarkRecordProcessed<K, V> extends BaseAction<K, V> implements RecordProcessingOnSuccessAction<K, V> {
+public class SkipRecordProcessingAction<K, V> extends BaseAction<K, V> implements RecordProcessingOnFailureAction<K, V> {
 
-    public MarkRecordProcessed(WorkersConfig config, WorkersMetrics metrics, OffsetsState offsetsState) {
+    public SkipRecordProcessingAction(WorkersConfig config, WorkersMetrics metrics, OffsetsState offsetsState) {
         super(config, metrics, offsetsState);
     }
 
     @Override
-    public void handleSuccess(WorkerRecord<K, V> record) {
+    public void handleFailure(WorkerRecord<K, V> record, Exception exception) {
+        //TODO: increment skipped records counter
         markRecordProcessed(record);
     }
 }

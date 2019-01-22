@@ -7,12 +7,12 @@ import com.rtbhouse.kafka.workers.impl.metrics.WorkersMetrics;
 import com.rtbhouse.kafka.workers.impl.offsets.OffsetsState;
 import com.rtbhouse.kafka.workers.impl.task.WorkerThread;
 
-public class ShutdownWorkerThread<K, V> extends BaseAction<K, V> implements RecordProcessingOnFailureAction<K, V> {
+public class ShutdownWorkerThreadAction<K, V> extends BaseAction<K, V> implements RecordProcessingOnFailureAction<K, V> {
 
     private final WorkerThread<K, V> workerThread;
 
-    public ShutdownWorkerThread(WorkersConfig config, WorkersMetrics metrics, OffsetsState offsetsState,
-                                WorkerThread<K, V> workerThread) {
+    public ShutdownWorkerThreadAction(WorkersConfig config, WorkersMetrics metrics, OffsetsState offsetsState,
+                                      WorkerThread<K, V> workerThread) {
         super(config, metrics, offsetsState);
         this.workerThread = workerThread;
     }

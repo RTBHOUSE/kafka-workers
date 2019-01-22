@@ -27,7 +27,7 @@ public class RecordProcessingActionFactory<K, V> {
     }
 
     public RecordProcessingOnSuccessAction<K, V> createSuccessAction() {
-        return new MarkRecordProcessed<>(config, metrics, offsetsState);
+        return new MarkRecordProcessedAction<>(config, metrics, offsetsState);
     }
 
     public RecordProcessingOnFailureAction<K, V> createFailureAction() {
@@ -36,14 +36,14 @@ public class RecordProcessingActionFactory<K, V> {
 
         switch (actionName) {
             case SHUTDOWN:
-                innerAction = new ShutdownWorkerThread<>(config, metrics, offsetsState, workerThread);
+                innerAction = new ShutdownWorkerThreadAction<>(config, metrics, offsetsState, workerThread);
                 break;
             case SKIP:
-                innerAction = new SkipRecordProcessing<>(config, metrics, offsetsState);
+                innerAction = new SkipRecordProcessingAction<>(config, metrics, offsetsState);
                 break;
             case FALLBACK_TOPIC:
                 KafkaProducer<K, V> kafkaProducer = fallbackTopicKafkaProducerSupplier.get();
-                innerAction = new SendToFallbackTopic<>(config, metrics, offsetsState, kafkaProducer);
+                innerAction = new SendToFallbackTopicAction<>(config, metrics, offsetsState, kafkaProducer);
                 break;
             default:
                 throw new IllegalStateException(String.format("Action name [%s] not supported", actionName.name()));
