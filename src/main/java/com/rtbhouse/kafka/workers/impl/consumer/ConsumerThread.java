@@ -1,5 +1,6 @@
 package com.rtbhouse.kafka.workers.impl.consumer;
 
+import java.time.Duration;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
@@ -8,6 +9,7 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
+import org.apache.kafka.clients.consumer.OffsetCommitCallback;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.errors.WakeupException;
 import org.slf4j.Logger;
@@ -34,6 +36,7 @@ public class ConsumerThread<K, V> extends AbstractWorkersThread implements Parti
     private final OffsetsState offsetsState;
     private final KafkaConsumer<K, V> consumer;
     private final ConsumerRebalanceListenerImpl<K, V> listener;
+    private final OffsetCommitCallback commitCallback;
     private long commitTime = System.currentTimeMillis();
 
     public ConsumerThread(
@@ -49,6 +52,7 @@ public class ConsumerThread<K, V> extends AbstractWorkersThread implements Parti
         this.offsetsState = offsetsState;
         this.consumer = new KafkaConsumer<>(config.getConsumerConfigs());
         this.listener = new ConsumerRebalanceListenerImpl<>(workers);
+        this.commitCallback = new OffsetCommitCallbackImpl(config, this, offsetsState, metrics);
     }
 
     @Override
@@ -60,7 +64,7 @@ public class ConsumerThread<K, V> extends AbstractWorkersThread implements Parti
     public void process() {
         ConsumerRecords<K, V> records;
         try {
-            records = consumer.poll(config.getLong(WorkersConfig.CONSUMER_POLL_TIMEOUT_MS));
+            records = consumer.poll(Duration.ofMillis(config.getLong(WorkersConfig.CONSUMER_POLL_TIMEOUT_MS)));
         } catch (WakeupException e) {
             if (!shutdown) {
                 throw new WorkersException("unexpected consumer wakeup", e);
@@ -101,7 +105,7 @@ public class ConsumerThread<K, V> extends AbstractWorkersThread implements Parti
             Map<TopicPartition, OffsetAndMetadata> offsets = offsetsState.getOffsetsToCommit(consumer.assignment(), minTimestamp);
             logger.debug("committing offsets async: {}", offsets);
             if (!offsets.isEmpty()) {
-                consumer.commitAsync(offsets, new OffsetCommitCallbackImpl(this, offsetsState, metrics));
+                consumer.commitAsync(offsets, commitCallback);
             }
         }
     }
