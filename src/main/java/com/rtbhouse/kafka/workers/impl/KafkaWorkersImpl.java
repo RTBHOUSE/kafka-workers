@@ -1,5 +1,6 @@
 package com.rtbhouse.kafka.workers.impl;
 
+import static com.rtbhouse.kafka.workers.api.record.action.FailureActionName.FALLBACK_TOPIC;
 import static com.rtbhouse.kafka.workers.impl.metrics.WorkersMetrics.WORKER_THREAD_COUNT_METRIC_NAME;
 import static com.rtbhouse.kafka.workers.impl.metrics.WorkersMetrics.WORKER_THREAD_METRIC_GROUP;
 
@@ -10,6 +11,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.common.TopicPartition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,6 +27,7 @@ import com.rtbhouse.kafka.workers.impl.metrics.WorkersMetrics;
 import com.rtbhouse.kafka.workers.impl.offsets.OffsetsState;
 import com.rtbhouse.kafka.workers.impl.partitioner.SubpartitionSupplier;
 import com.rtbhouse.kafka.workers.impl.queues.QueuesManager;
+import com.rtbhouse.kafka.workers.impl.record.action.FallbackTopicKafkaProducerSupplier;
 import com.rtbhouse.kafka.workers.impl.task.TaskManager;
 import com.rtbhouse.kafka.workers.impl.task.WorkerThread;
 
@@ -33,7 +36,7 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
     private static final Logger logger = LoggerFactory.getLogger(KafkaWorkersImpl.class);
 
     private enum Status {
-        CREATED, STARTING, STARTED, SHUTDOWN, CLOSING, CLOSED;
+        CREATED, STARTING, STARTED, SHUTDOWN, CLOSING, CLOSED
     }
 
     private final WorkersConfig config;
@@ -82,8 +85,8 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
         final int numWorkers = config.getInt(WorkersConfig.WORKER_THREADS_NUM);
         consumerThread = new ConsumerThread<>(config, metrics, this, queueManager, subpartitionSupplier, offsetsState);
         for (int i = 0; i < numWorkers; i++) {
-            workerThreads
-                    .add(new WorkerThread<K, V>(i, config, metrics, this, taskManager, queueManager, offsetsState));
+            workerThreads.add(new WorkerThread<>(i, config, metrics, this,
+                    taskManager, queueManager, offsetsState));
         }
 
         executorService = Executors.newFixedThreadPool(1 + numWorkers);
@@ -151,6 +154,13 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
 
         if (callback != null) {
             callback.onShutdown(exception);
+        }
+
+        if (config.getFailureActionName() == FALLBACK_TOPIC) {
+            logger.info("fallback kafka producer closing");
+            KafkaProducer<K, V> kafkaProducer = FallbackTopicKafkaProducerSupplier.<K, V>getInstance(config).get();
+            kafkaProducer.close();
+            logger.info("fallback kafka producer closed");
         }
 
         setStatus(Status.CLOSED);

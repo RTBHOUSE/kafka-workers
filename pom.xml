@@ -51,6 +51,19 @@
         </repository>
     </distributionManagement>
 
+    <!--<distributionManagement>-->
+        <!--<repository>-->
+            <!--<id>Adpilot</id>-->
+            <!--<name>Internal Releases</name>-->
+            <!--<url>http://nexus.adpilot-rtb.net:8081/content/repositories/releases/</url>-->
+        <!--</repository>-->
+        <!--<snapshotRepository>-->
+            <!--<id>Adpilot-snapshots</id>-->
+            <!--<name>Internal Snapshots</name>-->
+            <!--<url>http://nexus.adpilot-rtb.net:8081/content/repositories/snapshots/</url>-->
+        <!--</snapshotRepository>-->
+    <!--</distributionManagement>-->
+
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.source>11</maven.compiler.source>
