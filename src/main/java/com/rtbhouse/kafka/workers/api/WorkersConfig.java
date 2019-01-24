@@ -19,6 +19,7 @@ import org.apache.kafka.common.config.AbstractConfig;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigDef.Importance;
 import org.apache.kafka.common.config.ConfigDef.Type;
+import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.common.metrics.MetricsReporter;
 
 import com.rtbhouse.kafka.workers.api.partitioner.WorkerSubpartition;
@@ -67,9 +68,9 @@ public class WorkersConfig extends AbstractConfig {
     /**
      * The number of retries in case of retriable commit failed exception.
      */
-    public static final String CONSUMER_COMMIT_RETRIES = "consumer.commit.retries";
-    private static final String CONSUMER_COMMIT_RETRIES_DOC = "The number of retries in case of retriable commit failed exception.";
-    private static final int CONSUMER_COMMIT_RETRIES_DEFAULT = 3;
+    public static final String CONSUMER_MAX_RETRIABLE_FAILURES = "consumer.commit.retries";
+    private static final String CONSUMER_MAX_RETRIABLE_FAILURES_DOC = "The number of retries in case of retriable commit failed exception.";
+    private static final int CONSUMER_MAX_RETRIABLE_FAILURES_DEFAULT = 3;
 
     /**
      * The number of {@link WorkerThread}s per one {@link KafkaWorkers} instance.
@@ -145,11 +146,11 @@ public class WorkersConfig extends AbstractConfig {
                         CONSUMER_PROCESSING_TIMEOUT_MS_DEFAULT,
                         Importance.MEDIUM,
                         CONSUMER_PROCESSING_TIMEOUT_MS_DOC)
-                .define(CONSUMER_COMMIT_RETRIES,
+                .define(CONSUMER_MAX_RETRIABLE_FAILURES,
                         Type.INT,
-                        CONSUMER_COMMIT_RETRIES_DEFAULT,
+                        CONSUMER_MAX_RETRIABLE_FAILURES_DEFAULT,
                         Importance.LOW,
-                        CONSUMER_COMMIT_RETRIES_DOC)
+                        CONSUMER_MAX_RETRIABLE_FAILURES_DOC)
                 .define(WORKER_THREADS_NUM,
                         Type.INT,
                         WORKER_THREADS_NUM_DEFAULT,
@@ -187,24 +188,24 @@ public class WorkersConfig extends AbstractConfig {
                         RECORD_PROCESSING_FALLBACK_TOPIC_DOC);
     }
 
-    private static final Map<String, Object> CONSUMER_OVERRIDES;
+    private static final Map<String, Object> CONFIG_FINALS;
     static {
         final Map<String, Object> tmpConfigs = new HashMap<>();
-        tmpConfigs.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
-        CONSUMER_OVERRIDES = Collections.unmodifiableMap(tmpConfigs);
+        tmpConfigs.put(CONSUMER_PREFIX + ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
+        CONFIG_FINALS = Collections.unmodifiableMap(tmpConfigs);
     }
 
     public WorkersConfig(final Map<?, ?> props) {
         super(CONFIG, props);
-        checkConsumerConfigs();
+        checkConfigFinals();
         checkRecordProcessingConfigs();
     }
 
-    private void checkConsumerConfigs() {
-        Map<String, Object> configs = originalsWithPrefix(CONSUMER_PREFIX);
-        for (Map.Entry<String, Object> override : CONSUMER_OVERRIDES.entrySet()) {
+    private void checkConfigFinals() {
+        Map<String, Object> configs = originals();
+        for (Map.Entry<String, Object> override : CONFIG_FINALS.entrySet()) {
             var value = configs.get(override.getKey());
-            checkState(value == null || value.equals(override.getValue()), "Consumer config [%s] should be set to [%s]",
+            checkState(value == null || value.equals(override.getValue()), "Config [%s] should be set to [%s]",
                     override.getKey(), override.getValue());
         }
     }
@@ -223,12 +224,18 @@ public class WorkersConfig extends AbstractConfig {
         }
     }
 
-    public Map<String, Object> getConsumerConfigs() {
-        Map<String, Object> configs = originalsWithPrefix(CONSUMER_PREFIX);
-        for (Map.Entry<String, Object> override : CONSUMER_OVERRIDES.entrySet()) {
-            configs.put(override.getKey(), override.getValue());
+    public Map<String, Object> originalsWithPrefix(String prefix) {
+        Map<String, Object> configs = super.originalsWithPrefix(prefix);
+        for (Map.Entry<String, Object> override : CONFIG_FINALS.entrySet()) {
+            if (override.getKey().contains(prefix)) {
+                configs.put(override.getKey().replace(prefix, ""), override.getValue());
+            }
         };
         return configs;
+    }
+
+    public Map<String, Object> getConsumerConfigs() {
+        return originalsWithPrefix(CONSUMER_PREFIX);
     }
 
     public Map<String, Object> getWorkerTaskConfigs() {

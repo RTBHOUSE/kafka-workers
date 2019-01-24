@@ -23,7 +23,8 @@ public class OffsetCommitCallbackImpl implements OffsetCommitCallback {
     private final ConsumerThread<?, ?> consumerThread;
     private final OffsetsState offsetsState;
     private final WorkersMetrics metrics;
-    private final AtomicInteger attempts = new AtomicInteger();
+
+    private final AtomicInteger failuresInRow = new AtomicInteger();
 
     public OffsetCommitCallbackImpl(
             WorkersConfig config,
@@ -40,13 +41,14 @@ public class OffsetCommitCallbackImpl implements OffsetCommitCallback {
     public void onComplete(Map<TopicPartition, OffsetAndMetadata> offsets, Exception exception) {
         if (exception != null) {
             if (exception instanceof RetriableCommitFailedException) {
-                int attempt = attempts.incrementAndGet();
-                if (attempt <= config.getInt(WorkersConfig.CONSUMER_COMMIT_RETRIES)) {
-                    logger.warn("retriable commit failed exception: {}, offsets: {}, attempt: {}/{}",
-                            exception, offsets, attempt, config.getInt(WorkersConfig.CONSUMER_COMMIT_RETRIES));
+                final int maxFailuresInRow = config.getInt(WorkersConfig.CONSUMER_MAX_RETRIABLE_FAILURES);
+                final int failureNum = failuresInRow.incrementAndGet();
+                if (failureNum <= maxFailuresInRow) {
+                    logger.warn("retriable commit failed exception: {}, offsets: {}, failureNum: {}/{}",
+                            exception, offsets, failureNum, maxFailuresInRow);
                 } else {
-                    logger.error("retriable commit failed exception: {}, offsets: {}, attempt: {}/{}",
-                            exception, offsets, attempt, config.getInt(WorkersConfig.CONSUMER_COMMIT_RETRIES));
+                    logger.error("retriable commit failed exception: {}, offsets: {}, failureNum: {}/{}",
+                            exception, offsets, failureNum, maxFailuresInRow);
                     consumerThread.shutdown(new FailedCommitException(exception));
                 }
             } else {
@@ -55,7 +57,7 @@ public class OffsetCommitCallbackImpl implements OffsetCommitCallback {
             }
         } else {
             logger.debug("commit succeeded, offsets: {}", offsets);
-            attempts.set(0);
+            failuresInRow.set(0);
             for (Map.Entry<TopicPartition, OffsetAndMetadata> entry : offsets.entrySet()) {
                 TopicPartition partition = entry.getKey();
                 long offset = entry.getValue().offset();
