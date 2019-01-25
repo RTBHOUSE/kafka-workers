@@ -188,25 +188,25 @@ public class WorkersConfig extends AbstractConfig {
                         RECORD_PROCESSING_FALLBACK_TOPIC_DOC);
     }
 
-    private static final Map<String, Object> CONFIG_FINALS;
+    private static final Map<String, Object> CONSUMER_CONFIG_FINALS;
     static {
         final Map<String, Object> tmpConfigs = new HashMap<>();
-        tmpConfigs.put(CONSUMER_PREFIX + ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
-        CONFIG_FINALS = Collections.unmodifiableMap(tmpConfigs);
+        tmpConfigs.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
+        CONSUMER_CONFIG_FINALS = Collections.unmodifiableMap(tmpConfigs);
     }
 
     public WorkersConfig(final Map<?, ?> props) {
         super(CONFIG, props);
-        checkConfigFinals();
+        checkConfigFinals(CONSUMER_PREFIX, CONSUMER_CONFIG_FINALS);
         checkRecordProcessingConfigs();
     }
 
-    private void checkConfigFinals() {
-        Map<String, Object> configs = originals();
-        for (Map.Entry<String, Object> override : CONFIG_FINALS.entrySet()) {
+    private void checkConfigFinals(String prefix, Map<String, Object> finals) {
+        Map<String, Object> configs = originalsWithPrefix(prefix);;
+        for (Map.Entry<String, Object> override : finals.entrySet()) {
             var value = configs.get(override.getKey());
             checkState(value == null || value.equals(override.getValue()), "Config [%s] should be set to [%s]",
-                    override.getKey(), override.getValue());
+                    prefix + override.getKey(), override.getValue());
         }
     }
 
@@ -224,18 +224,12 @@ public class WorkersConfig extends AbstractConfig {
         }
     }
 
-    public Map<String, Object> originalsWithPrefix(String prefix) {
-        Map<String, Object> configs = super.originalsWithPrefix(prefix);
-        for (Map.Entry<String, Object> override : CONFIG_FINALS.entrySet()) {
-            if (override.getKey().contains(prefix)) {
-                configs.put(override.getKey().replace(prefix, ""), override.getValue());
-            }
+    public Map<String, Object> getConsumerConfigs() {
+        Map<String, Object> configs = originalsWithPrefix(CONSUMER_PREFIX);
+        for (Map.Entry<String, Object> override : CONSUMER_CONFIG_FINALS.entrySet()) {
+            configs.put(override.getKey(), override.getValue());
         };
         return configs;
-    }
-
-    public Map<String, Object> getConsumerConfigs() {
-        return originalsWithPrefix(CONSUMER_PREFIX);
     }
 
     public Map<String, Object> getWorkerTaskConfigs() {

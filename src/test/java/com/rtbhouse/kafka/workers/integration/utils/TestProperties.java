@@ -27,7 +27,6 @@ public final class TestProperties {
         workersProperties.put("consumer.topics", String.join(",", topics));
         workersProperties.put("consumer.kafka.bootstrap.servers", BOOTSTRAP_SERVERS);
         workersProperties.put("consumer.kafka.group.id", "workers" + ThreadLocalRandom.current().nextInt());
-        workersProperties.put("consumer.kafka.enable.auto.commit", "false");
         workersProperties.put("consumer.kafka.auto.offset.reset", "earliest");
         workersProperties.put("consumer.kafka.key.deserializer", keyDeserializer);
         workersProperties.put("consumer.kafka.value.deserializer", valueDeserializer);
