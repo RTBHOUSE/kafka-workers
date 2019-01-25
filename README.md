@@ -15,11 +15,11 @@ Additionally it supports:
 
 ## Version
 
-Current version is **1.0.4**
+Current version is **1.0.5**
 
 ## Requirements
 
-You need Java 8 and at least Apache Kafka 2.0 to use this library.
+You need Java 11 and at least Apache Kafka 2.0 to use this library.
 
 ## Installation
 
@@ -29,7 +29,7 @@ Releases are distributed on Maven central:
 <dependency>
     <groupId>com.rtbhouse</groupId>
     <artifactId>kafka-workers</artifactId>
-    <version>1.0.4</version>
+    <version>1.0.5</version>
 </dependency>
 ```
 
@@ -50,7 +50,7 @@ User-defined task which is associated with one of WorkerSubpartitions. The most 
 ```java
 public interface WorkerPartitioner<K, V> {
     int subpartition(ConsumerRecord<K, V> consumerRecord);
-    int count();
+    int count(TopicPartition topicPartition);
 }
 ```
 User-defined partitioner is used for additional sub-partitioning which could give better distribution of processing. It means that stream of records from one TopicPartition could be reordered during processing but records with the same WorkerSubpartition remain ordered to each other. It leads also to a bit more complex offsets committing policy which is provided by Kafka Workers to ensure at-least-once delivery.
@@ -125,6 +125,16 @@ Usage example:
    </td>
 </tr>
 <tr>
+   <td>consumer.commit.retries</td>
+   </td>
+   <td>The number of retries in case of retriable commit failed exception.</td>
+   </td>
+   <td>int</td>
+   </td>
+   <td>3</td>
+   </td>
+</tr>
+<tr>
    <td>consumer.kafka</td>
    </td>
    <td>Should be used as a prefix for internal kafka consumer configuration. Usage example:
@@ -166,6 +176,25 @@ Usage example:
    </td>
    </td>
    <td></td>
+   </td>
+   <td></td>
+</tr>
+<tr>
+   <td>record.processing.failure.action</td>
+   </td>
+   <td>Determines what to in case of record processing failure. Possible values: SHUTDOWN, SKIP, FALLBACK_TOPIC (the last one requires record.processing.fallback.topic setting).
+   </td>
+   <td>String</td>
+   </td>
+   <td>SHUTDOWN</td>
+</tr>
+<tr>
+   <td>record.processing.fallback.topic</td>
+   </td>
+   <td>Topic where failed records will be sent in case of record.processing.failure.action = FALLBACK_TOPIC.
+   </td>
+   </td>
+   <td>String</td>
    </td>
    <td></td>
 </tr>
