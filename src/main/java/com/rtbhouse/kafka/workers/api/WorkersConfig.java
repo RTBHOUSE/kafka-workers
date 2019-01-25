@@ -225,8 +225,12 @@ public class WorkersConfig extends AbstractConfig {
     }
 
     public Map<String, Object> getConsumerConfigs() {
-        Map<String, Object> configs = originalsWithPrefix(CONSUMER_PREFIX);
-        for (Map.Entry<String, Object> override : CONSUMER_CONFIG_FINALS.entrySet()) {
+        return getConfigsWithFinals(CONSUMER_PREFIX, CONSUMER_CONFIG_FINALS);
+    }
+
+    private Map<String, Object> getConfigsWithFinals(String prefix, Map<String, Object> finals) {
+        Map<String, Object> configs = originalsWithPrefix(prefix);
+        for (Map.Entry<String, Object> override : finals.entrySet()) {
             configs.put(override.getKey(), override.getValue());
         };
         return configs;
@@ -243,4 +247,5 @@ public class WorkersConfig extends AbstractConfig {
     public FailureActionName getFailureActionName() {
         return FailureActionName.of(getString(RECORD_PROCESSING_FAILURE_ACTION));
     }
+
 }
