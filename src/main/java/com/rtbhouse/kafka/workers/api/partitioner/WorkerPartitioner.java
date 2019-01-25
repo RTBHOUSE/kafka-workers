@@ -27,6 +27,9 @@ public interface WorkerPartitioner<K, V> {
     /**
      * Returns the total number of sub-partitions for given {@link TopicPartition}.
      *
+     * @param topicPartition
+     *            given partition to determine number of its subpartitions
+     *
      * @return an integer greater than or equal to 1
      */
     int count(TopicPartition topicPartition);

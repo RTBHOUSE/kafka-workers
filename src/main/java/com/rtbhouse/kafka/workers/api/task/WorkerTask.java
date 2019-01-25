@@ -14,7 +14,7 @@ public interface WorkerTask<K, V> {
      * Will be called every time when given {@link WorkerSubpartition} is being associated with {@code KafkaWorkers}
      * instance.
      *
-     * @param config
+     * @param subpartition
      *            {@link WorkerSubpartition} subpartition associated with given task
      * @param config
      *            {@link WorkersConfig} configuration
