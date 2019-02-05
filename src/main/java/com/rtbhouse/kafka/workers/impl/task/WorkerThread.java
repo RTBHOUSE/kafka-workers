@@ -90,8 +90,10 @@ public class WorkerThread<K, V> extends AbstractWorkersThread {
 
     @Override
     public void close() {
-        for (WorkerTaskImpl<K, V> task : tasks) {
-            task.close();
+        synchronized(tasks) {
+            for (WorkerTaskImpl<K, V> task : tasks) {
+                task.close();
+            }
         }
         metrics.removeWorkerThreadMetrics(this);
     }
@@ -124,11 +126,13 @@ public class WorkerThread<K, V> extends AbstractWorkersThread {
     }
 
     public synchronized void notifyThread() {
-        for (WorkerTaskImpl<K, V> task : tasks) {
-            if (queueManager.peek(task.subpartition()) != null) {
-                waiting = false;
-                // wakes thread up because at least one record was pushed to process
-                notifyAll();
+        synchronized(tasks) {
+            for (WorkerTaskImpl<K, V> task : tasks) {
+                if (queueManager.peek(task.subpartition()) != null) {
+                    waiting = false;
+                    // wakes thread up because at least one record was pushed to process
+                    notifyAll();
+                }
             }
         }
     }
@@ -138,9 +142,7 @@ public class WorkerThread<K, V> extends AbstractWorkersThread {
         while (tasksToProcess.isEmpty() && !shutdown) { // in case of shutdown we do not want to block thread
             int queues = 0;
             synchronized(tasks) {
-                Iterator<WorkerTaskImpl<K, V>> i = tasks.iterator();
-                while (i.hasNext()) {
-                    WorkerTaskImpl<K, V> task = i.next();
+                for (WorkerTaskImpl<K, V> task : tasks) {
                     queues++;
                     if (queueManager.peek(task.subpartition()) != null) {
                         tasksToProcess.add(task);
