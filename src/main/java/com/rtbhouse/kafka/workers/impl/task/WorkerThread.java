@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,7 +29,7 @@ public class WorkerThread<K, V> extends AbstractWorkersThread {
     private final int workerId;
     private final TaskManager<K, V> taskManager;
     private final QueuesManager<K, V> queueManager;
-    private final List<WorkerTaskImpl<K, V>> tasks = Collections.synchronizedList(new ArrayList<>());
+    private final List<WorkerTaskImpl<K, V>> tasks = new CopyOnWriteArrayList<>();
     private final RecordProcessingOnSuccessAction<K, V> successAction;
     private final RecordProcessingOnFailureAction<K, V> failureAction;
 
@@ -90,10 +91,8 @@ public class WorkerThread<K, V> extends AbstractWorkersThread {
 
     @Override
     public void close() {
-        synchronized(tasks) {
-            for (WorkerTaskImpl<K, V> task : tasks) {
-                task.close();
-            }
+        for (WorkerTaskImpl<K, V> task : tasks) {
+            task.close();
         }
         metrics.removeWorkerThreadMetrics(this);
     }
@@ -126,13 +125,11 @@ public class WorkerThread<K, V> extends AbstractWorkersThread {
     }
 
     public synchronized void notifyThread() {
-        synchronized(tasks) {
-            for (WorkerTaskImpl<K, V> task : tasks) {
-                if (queueManager.peek(task.subpartition()) != null) {
-                    waiting = false;
-                    // wakes thread up because at least one record was pushed to process
-                    notifyAll();
-                }
+        for (WorkerTaskImpl<K, V> task : tasks) {
+            if (queueManager.peek(task.subpartition()) != null) {
+                waiting = false;
+                // wakes thread up because at least one record was pushed to process
+                notifyAll();
             }
         }
     }
@@ -141,12 +138,10 @@ public class WorkerThread<K, V> extends AbstractWorkersThread {
         List<WorkerTaskImpl<K, V>> tasksToProcess = new ArrayList<>();
         while (tasksToProcess.isEmpty() && !shutdown) { // in case of shutdown we do not want to block thread
             int queues = 0;
-            synchronized(tasks) {
-                for (WorkerTaskImpl<K, V> task : tasks) {
-                    queues++;
-                    if (queueManager.peek(task.subpartition()) != null) {
-                        tasksToProcess.add(task);
-                    }
+            for (WorkerTaskImpl<K, V> task : tasks) {
+                queues++;
+                if (queueManager.peek(task.subpartition()) != null) {
+                    tasksToProcess.add(task);
                 }
             }
             if (tasksToProcess.isEmpty()) {

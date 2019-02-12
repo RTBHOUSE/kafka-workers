@@ -15,7 +15,7 @@ Additionally it supports:
 
 ## Version
 
-Current version is **1.0.6**
+Current version is **1.0.7**
 
 ## Requirements
 
@@ -29,7 +29,7 @@ Releases are distributed on Maven central:
 <dependency>
     <groupId>com.rtbhouse</groupId>
     <artifactId>kafka-workers</artifactId>
-    <version>1.0.6</version>
+    <version>1.0.7</version>
 </dependency>
 ```
 
@@ -182,7 +182,7 @@ Usage example:
 <tr>
    <td>record.processing.failure.action</td>
    </td>
-   <td>Determines what to in case of record processing failure. Possible values: SHUTDOWN, SKIP, FALLBACK_TOPIC (the last one requires record.processing.fallback.topic setting).
+   <td>Determines what to do in case of record processing failure. Possible values: SHUTDOWN, SKIP, FALLBACK_TOPIC (the last one requires record.processing.fallback.topic setting).
    </td>
    <td>String</td>
    </td>
