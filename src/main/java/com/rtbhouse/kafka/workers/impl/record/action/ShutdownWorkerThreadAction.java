@@ -7,20 +7,20 @@ import com.rtbhouse.kafka.workers.impl.metrics.WorkersMetrics;
 import com.rtbhouse.kafka.workers.impl.offsets.OffsetsState;
 import com.rtbhouse.kafka.workers.impl.task.WorkerThread;
 
-public class ShutdownWorkerThreadAction<K, V> extends BaseAction<K, V> implements RecordProcessingOnFailureAction<K, V> {
+public class ShutdownWorkerThreadAction<K, V> extends BaseAction<K, V> implements RecordProcessingOnFailureAction {
 
     private final WorkerThread<K, V> workerThread;
 
-    public ShutdownWorkerThreadAction(WorkersConfig config, WorkersMetrics metrics, OffsetsState offsetsState,
+    public ShutdownWorkerThreadAction(WorkerRecord<K, V> workerRecord, WorkersConfig config, WorkersMetrics metrics, OffsetsState offsetsState,
                                       WorkerThread<K, V> workerThread) {
-        super(config, metrics, offsetsState);
+        super(workerRecord, config, metrics, offsetsState);
         this.workerThread = workerThread;
     }
 
     @Override
-    public void handleFailure(WorkerRecord<K, V> record, Exception exception) {
+    public void handleFailure(Exception exception) {
         workerThread.shutdown(new ProcessingFailureException(
-                "record processing failed, subpartition: " + record.workerSubpartition() +
-                        " , offset: " + record.offset(), exception));
+                "record processing failed, subpartition: " + subpartition +
+                        " , offset: " + offset, exception));
     }
 }

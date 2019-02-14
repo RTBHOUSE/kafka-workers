@@ -1,14 +1,14 @@
 package com.rtbhouse.kafka.workers.impl.record.action;
 
-import java.util.function.Supplier;
-
-import org.apache.kafka.clients.producer.KafkaProducer;
-
 import com.rtbhouse.kafka.workers.api.WorkersConfig;
+import com.rtbhouse.kafka.workers.api.record.WorkerRecord;
 import com.rtbhouse.kafka.workers.api.record.action.FailureActionName;
 import com.rtbhouse.kafka.workers.impl.metrics.WorkersMetrics;
 import com.rtbhouse.kafka.workers.impl.offsets.OffsetsState;
 import com.rtbhouse.kafka.workers.impl.task.WorkerThread;
+import org.apache.kafka.clients.producer.KafkaProducer;
+
+import java.util.function.Supplier;
 
 public class RecordProcessingActionFactory<K, V> {
 
@@ -26,30 +26,30 @@ public class RecordProcessingActionFactory<K, V> {
         this.fallbackTopicKafkaProducerSupplier = FallbackTopicKafkaProducerSupplier.getInstance(config);
     }
 
-    public RecordProcessingOnSuccessAction<K, V> createSuccessAction() {
-        return new MarkRecordProcessedAction<>(config, metrics, offsetsState);
+    public RecordProcessingOnSuccessAction createSuccessAction(WorkerRecord<K, V> workerRecord) {
+        return new MarkRecordProcessedAction<>(workerRecord, config, metrics, offsetsState);
     }
 
-    public RecordProcessingOnFailureAction<K, V> createFailureAction() {
+    public RecordProcessingOnFailureAction createFailureAction(WorkerRecord<K, V> workerRecord) {
         FailureActionName actionName = config.getFailureActionName();
-        RecordProcessingOnFailureAction<K, V> innerAction;
+        RecordProcessingOnFailureAction innerAction;
 
         switch (actionName) {
             case SHUTDOWN:
-                innerAction = new ShutdownWorkerThreadAction<>(config, metrics, offsetsState, workerThread);
+                innerAction = new ShutdownWorkerThreadAction<>(workerRecord, config, metrics, offsetsState, workerThread);
                 break;
             case SKIP:
-                innerAction = new SkipRecordProcessingAction<>(config, metrics, offsetsState);
+                innerAction = new SkipRecordProcessingAction<>(workerRecord, config, metrics, offsetsState);
                 break;
             case FALLBACK_TOPIC:
                 KafkaProducer<K, V> kafkaProducer = fallbackTopicKafkaProducerSupplier.get();
-                innerAction = new SendToFallbackTopicAction<>(config, metrics, offsetsState, kafkaProducer);
+                innerAction = new SendToFallbackTopicAction<>(workerRecord, config, metrics, offsetsState, kafkaProducer);
                 break;
             default:
                 throw new IllegalStateException(String.format("Action name [%s] not supported", actionName.name()));
         }
 
-        return new LoggingFailureAction<>(config, metrics, offsetsState, actionName, innerAction);
+        return new LoggingFailureAction(actionName, innerAction);
     }
 
 }

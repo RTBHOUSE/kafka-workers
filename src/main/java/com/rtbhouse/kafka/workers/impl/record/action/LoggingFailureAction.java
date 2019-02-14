@@ -1,31 +1,34 @@
 package com.rtbhouse.kafka.workers.impl.record.action;
 
+import com.rtbhouse.kafka.workers.api.record.action.FailureActionName;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.rtbhouse.kafka.workers.api.WorkersConfig;
-import com.rtbhouse.kafka.workers.api.record.WorkerRecord;
-import com.rtbhouse.kafka.workers.api.record.action.FailureActionName;
-import com.rtbhouse.kafka.workers.impl.metrics.WorkersMetrics;
-import com.rtbhouse.kafka.workers.impl.offsets.OffsetsState;
-
-public class LoggingFailureAction<K, V> extends BaseAction<K, V> implements RecordProcessingOnFailureAction<K, V> {
+public class LoggingFailureAction<K, V> implements RecordProcessingOnFailureAction {
 
     private static final Logger logger = LoggerFactory.getLogger(LoggingFailureAction.class);
 
     private final FailureActionName actionName;
-    private final RecordProcessingOnFailureAction<K, V> action;
+    private final RecordProcessingOnFailureAction action;
 
-    public LoggingFailureAction(WorkersConfig config, WorkersMetrics metrics, OffsetsState offsetsState,
-                                FailureActionName actionName, RecordProcessingOnFailureAction<K, V> action) {
-        super(config, metrics, offsetsState);
+    public LoggingFailureAction(FailureActionName actionName, RecordProcessingOnFailureAction action) {
         this.actionName = actionName;
         this.action = action;
     }
 
     @Override
-    public void handleFailure(WorkerRecord<K, V> record, Exception exception) {
-        logger.warn("Exception when processing record {} (action: {})", record, actionName, exception);
-        action.handleFailure(record, exception);
+    @SuppressWarnings("unchecked")
+    public void handleFailure(Exception exception) {
+        if (RecordRetainingAction.class.isAssignableFrom(action.getClass())) {
+            logger.warn("Exception when processing record: {} (action: {})", ((RecordRetainingAction<K, V>) action).getWorkerRecord(),
+                    actionName, exception);
+        } else if (BaseAction.class.isAssignableFrom(action.getClass())) {
+            BaseAction<K, V> baseAction = (BaseAction<K, V>) action;
+            logger.warn("Exception when processing record from topic: {} and offset: {} (action: {})",
+                    baseAction.subpartition, baseAction.offset, actionName, exception);
+        } else {
+            logger.warn("Exception when processing record (action: {})", actionName, exception);
+        }
+        action.handleFailure(exception);
     }
 }
