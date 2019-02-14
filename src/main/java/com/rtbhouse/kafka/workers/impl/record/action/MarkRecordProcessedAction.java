@@ -5,14 +5,15 @@ import com.rtbhouse.kafka.workers.api.record.WorkerRecord;
 import com.rtbhouse.kafka.workers.impl.metrics.WorkersMetrics;
 import com.rtbhouse.kafka.workers.impl.offsets.OffsetsState;
 
-public class MarkRecordProcessedAction<K, V> extends BaseAction<K, V> implements RecordProcessingOnSuccessAction<K, V> {
+public class MarkRecordProcessedAction<K, V> extends BaseAction<K, V> implements RecordProcessingOnSuccessAction {
 
-    public MarkRecordProcessedAction(WorkersConfig config, WorkersMetrics metrics, OffsetsState offsetsState) {
-        super(config, metrics, offsetsState);
+    public MarkRecordProcessedAction(WorkerRecord<K, V> workerRecord, WorkersConfig config, WorkersMetrics metrics, OffsetsState offsetsState) {
+        super(workerRecord, config, metrics, offsetsState);
     }
 
     @Override
-    public void handleSuccess(WorkerRecord<K, V> record) {
-        markRecordProcessed(record);
+    public void handleSuccess() {
+        markRecordProcessed();
     }
+
 }

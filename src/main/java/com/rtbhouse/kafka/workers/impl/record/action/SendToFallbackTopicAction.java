@@ -1,27 +1,27 @@
 package com.rtbhouse.kafka.workers.impl.record.action;
 
-import static com.rtbhouse.kafka.workers.api.WorkersConfig.RECORD_PROCESSING_FALLBACK_TOPIC;
-
-import java.util.concurrent.ExecutionException;
-
-import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.kafka.clients.producer.ProducerRecord;
-
 import com.rtbhouse.kafka.workers.api.WorkersConfig;
 import com.rtbhouse.kafka.workers.api.record.WorkerRecord;
 import com.rtbhouse.kafka.workers.impl.errors.RecordProcessingActionException;
 import com.rtbhouse.kafka.workers.impl.metrics.WorkersMetrics;
 import com.rtbhouse.kafka.workers.impl.offsets.OffsetsState;
+import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.ProducerRecord;
 
-public class SendToFallbackTopicAction<K, V> extends BaseAction<K, V> implements RecordProcessingOnFailureAction<K, V> {
+import java.util.concurrent.ExecutionException;
 
+import static com.rtbhouse.kafka.workers.api.WorkersConfig.RECORD_PROCESSING_FALLBACK_TOPIC;
+
+public class SendToFallbackTopicAction<K, V> extends BaseAction<K, V> implements RecordRetainingAction<K, V>, RecordProcessingOnFailureAction {
+
+    private final WorkerRecord<K, V> workerRecord;
     private final KafkaProducer<K, V> kafkaProducer;
-
     private final String fallbackTopic;
 
-    public SendToFallbackTopicAction(WorkersConfig config, WorkersMetrics metrics, OffsetsState offsetsState,
+    public SendToFallbackTopicAction(WorkerRecord<K, V> workerRecord, WorkersConfig config, WorkersMetrics metrics, OffsetsState offsetsState,
                                      KafkaProducer<K, V> kafkaProducer) {
-        super(config, metrics, offsetsState);
+        super(workerRecord, config, metrics, offsetsState);
+        this.workerRecord = workerRecord;
         this.fallbackTopic = fallbackTopic();
         this.kafkaProducer = kafkaProducer;
     }
@@ -31,15 +31,20 @@ public class SendToFallbackTopicAction<K, V> extends BaseAction<K, V> implements
     }
 
     @Override
-    public void handleFailure(WorkerRecord<K, V> record, Exception exception) {
+    public void handleFailure(Exception exception) {
         try {
             var producerRecord = new ProducerRecord<>(fallbackTopic, null,
-                    record.key(), record.value(), record.headers());
+                    workerRecord.key(), workerRecord.value(), workerRecord.headers());
             //TODO: send async
             kafkaProducer.send(producerRecord).get();
         } catch (InterruptedException | ExecutionException e) {
             throw new RecordProcessingActionException(e);
         }
-        markRecordProcessed(record);
+        markRecordProcessed();
+    }
+
+    @Override
+    public WorkerRecord<K, V> getWorkerRecord() {
+        return workerRecord;
     }
 }

@@ -1,14 +1,5 @@
 package com.rtbhouse.kafka.workers.impl.task;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.rtbhouse.kafka.workers.api.WorkersConfig;
 import com.rtbhouse.kafka.workers.api.WorkersException;
 import com.rtbhouse.kafka.workers.api.record.WorkerRecord;
@@ -19,8 +10,13 @@ import com.rtbhouse.kafka.workers.impl.offsets.OffsetsState;
 import com.rtbhouse.kafka.workers.impl.queues.QueuesManager;
 import com.rtbhouse.kafka.workers.impl.record.RecordStatusObserverImpl;
 import com.rtbhouse.kafka.workers.impl.record.action.RecordProcessingActionFactory;
-import com.rtbhouse.kafka.workers.impl.record.action.RecordProcessingOnFailureAction;
-import com.rtbhouse.kafka.workers.impl.record.action.RecordProcessingOnSuccessAction;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 public class WorkerThread<K, V> extends AbstractWorkersThread {
 
@@ -30,8 +26,7 @@ public class WorkerThread<K, V> extends AbstractWorkersThread {
     private final TaskManager<K, V> taskManager;
     private final QueuesManager<K, V> queueManager;
     private final List<WorkerTaskImpl<K, V>> tasks = new CopyOnWriteArrayList<>();
-    private final RecordProcessingOnSuccessAction<K, V> successAction;
-    private final RecordProcessingOnFailureAction<K, V> failureAction;
+    private final RecordProcessingActionFactory<K, V> actionFactory;
 
     private volatile boolean waiting = false;
 
@@ -47,9 +42,7 @@ public class WorkerThread<K, V> extends AbstractWorkersThread {
         this.workerId = workerId;
         this.taskManager = taskManager;
         this.queueManager = queueManager;
-        var actionFactory = new RecordProcessingActionFactory<>(config, metrics, offsetsState, this);
-        this.successAction = actionFactory.createSuccessAction();
-        this.failureAction = actionFactory.createFailureAction();
+        this.actionFactory = new RecordProcessingActionFactory<>(config, metrics, offsetsState, this);
     }
 
     @Override
@@ -77,7 +70,9 @@ public class WorkerThread<K, V> extends AbstractWorkersThread {
                     throw new WorkersException("peekRecord and pollRecord are different");
                 }
 
-                RecordStatusObserverImpl<K, V> observer = new RecordStatusObserverImpl<>(pollRecord, successAction, failureAction);
+                RecordStatusObserverImpl observer = new RecordStatusObserverImpl(
+                        actionFactory.createSuccessAction(pollRecord),
+                        actionFactory.createFailureAction(pollRecord));
                 task.process(pollRecord, observer);
             }
         }
