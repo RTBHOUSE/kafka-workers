@@ -1,22 +1,22 @@
 package com.rtbhouse.kafka.workers.impl.task;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
+
+import com.rtbhouse.kafka.workers.impl.record.RecordStatusObserverImpl;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.rtbhouse.kafka.workers.api.WorkersConfig;
 import com.rtbhouse.kafka.workers.api.WorkersException;
+import com.rtbhouse.kafka.workers.api.record.RecordStatusObserver;
 import com.rtbhouse.kafka.workers.api.record.WorkerRecord;
 import com.rtbhouse.kafka.workers.impl.AbstractWorkersThread;
 import com.rtbhouse.kafka.workers.impl.KafkaWorkersImpl;
 import com.rtbhouse.kafka.workers.impl.metrics.WorkersMetrics;
 import com.rtbhouse.kafka.workers.impl.offsets.OffsetsState;
 import com.rtbhouse.kafka.workers.impl.queues.QueuesManager;
-import com.rtbhouse.kafka.workers.impl.record.RecordStatusObserverImpl;
-import com.rtbhouse.kafka.workers.impl.record.action.RecordProcessingActionFactory;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
 
 public class WorkerThread<K, V> extends AbstractWorkersThread {
 
@@ -26,7 +26,7 @@ public class WorkerThread<K, V> extends AbstractWorkersThread {
     private final TaskManager<K, V> taskManager;
     private final QueuesManager<K, V> queueManager;
     private final List<WorkerTaskImpl<K, V>> tasks = new CopyOnWriteArrayList<>();
-    private final RecordProcessingActionFactory<K, V> actionFactory;
+    private final OffsetsState offsetsState;
 
     private volatile boolean waiting = false;
 
@@ -42,7 +42,7 @@ public class WorkerThread<K, V> extends AbstractWorkersThread {
         this.workerId = workerId;
         this.taskManager = taskManager;
         this.queueManager = queueManager;
-        this.actionFactory = new RecordProcessingActionFactory<>(config, metrics, offsetsState, this);
+        this.offsetsState = offsetsState;
     }
 
     @Override
@@ -70,9 +70,7 @@ public class WorkerThread<K, V> extends AbstractWorkersThread {
                     throw new WorkersException("peekRecord and pollRecord are different");
                 }
 
-                RecordStatusObserverImpl observer = new RecordStatusObserverImpl(
-                        actionFactory.createSuccessAction(pollRecord),
-                        actionFactory.createFailureAction(pollRecord));
+                RecordStatusObserver observer = new RecordStatusObserverImpl<K, V>(pollRecord, metrics, config, offsetsState, this);
                 task.process(pollRecord, observer);
             }
         }

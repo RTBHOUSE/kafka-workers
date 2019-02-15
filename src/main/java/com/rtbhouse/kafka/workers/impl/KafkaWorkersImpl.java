@@ -1,6 +1,5 @@
 package com.rtbhouse.kafka.workers.impl;
 
-import static com.rtbhouse.kafka.workers.api.record.action.FailureActionName.FALLBACK_TOPIC;
 import static com.rtbhouse.kafka.workers.impl.metrics.WorkersMetrics.WORKER_THREAD_COUNT_METRIC_NAME;
 import static com.rtbhouse.kafka.workers.impl.metrics.WorkersMetrics.WORKER_THREAD_METRIC_GROUP;
 
@@ -11,7 +10,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.common.TopicPartition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,7 +25,6 @@ import com.rtbhouse.kafka.workers.impl.metrics.WorkersMetrics;
 import com.rtbhouse.kafka.workers.impl.offsets.OffsetsState;
 import com.rtbhouse.kafka.workers.impl.partitioner.SubpartitionSupplier;
 import com.rtbhouse.kafka.workers.impl.queues.QueuesManager;
-import com.rtbhouse.kafka.workers.impl.record.action.FallbackTopicKafkaProducerSupplier;
 import com.rtbhouse.kafka.workers.impl.task.TaskManager;
 import com.rtbhouse.kafka.workers.impl.task.WorkerThread;
 
@@ -90,9 +87,9 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
         }
 
         executorService = Executors.newFixedThreadPool(1 + numWorkers);
-        executorService.submit(consumerThread);
+        executorService.execute(consumerThread);
         for (WorkerThread<K, V> workerThread : workerThreads) {
-            executorService.submit(workerThread);
+            executorService.execute(workerThread);
         }
 
         setStatus(Status.STARTED);
@@ -154,13 +151,6 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
 
         if (callback != null) {
             callback.onShutdown(exception);
-        }
-
-        if (config.getFailureActionName() == FALLBACK_TOPIC) {
-            logger.info("fallback kafka producer closing");
-            KafkaProducer<K, V> kafkaProducer = FallbackTopicKafkaProducerSupplier.<K, V>getInstance(config).get();
-            kafkaProducer.close();
-            logger.info("fallback kafka producer closed");
         }
 
         setStatus(Status.CLOSED);

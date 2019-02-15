@@ -1,63 +1,62 @@
 package com.rtbhouse.kafka.workers.impl.record;
 
+import org.slf4j.Logger;
+
+import com.rtbhouse.kafka.workers.api.WorkersConfig;
+import com.rtbhouse.kafka.workers.api.partitioner.WorkerSubpartition;
+import com.rtbhouse.kafka.workers.api.record.RecordProcessingGuarantee;
 import com.rtbhouse.kafka.workers.api.record.RecordStatusObserver;
-import com.rtbhouse.kafka.workers.impl.errors.IllegalObserverUsageException;
-import com.rtbhouse.kafka.workers.impl.record.action.RecordProcessingOnFailureAction;
-import com.rtbhouse.kafka.workers.impl.record.action.RecordProcessingOnSuccessAction;
-import com.rtbhouse.kafka.workers.impl.record.action.RecordRetainingAction;
+import com.rtbhouse.kafka.workers.api.record.WorkerRecord;
+import com.rtbhouse.kafka.workers.impl.errors.ProcessingFailureException;
+import com.rtbhouse.kafka.workers.impl.metrics.WorkersMetrics;
+import com.rtbhouse.kafka.workers.impl.offsets.OffsetsState;
+import com.rtbhouse.kafka.workers.impl.task.WorkerThread;
+import org.slf4j.LoggerFactory;
 
-import java.util.concurrent.atomic.AtomicReference;
+public class RecordStatusObserverImpl<K, V> implements RecordStatusObserver {
 
-import static com.rtbhouse.kafka.workers.impl.record.RecordStatusObserverImpl.RecordStatus.FAILED;
-import static com.rtbhouse.kafka.workers.impl.record.RecordStatusObserverImpl.RecordStatus.PROCESSING;
-import static com.rtbhouse.kafka.workers.impl.record.RecordStatusObserverImpl.RecordStatus.SUCCEEDED;
+    private static final Logger logger = LoggerFactory.getLogger(RecordStatusObserverImpl.class);
 
-public class RecordStatusObserverImpl implements RecordStatusObserver {
-
-    public enum RecordStatus {
-        PROCESSING,
-        SUCCEEDED,
-        FAILED
-    }
-
-    private final AtomicReference<RecordStatus> recordStatus;
-    private final RecordProcessingOnSuccessAction onSuccessAction;
-    private final RecordProcessingOnFailureAction onFailureAction;
+    protected WorkerSubpartition subpartition;
+    protected long offset;
+    protected final WorkersMetrics metrics;
+    protected final RecordProcessingGuarantee recordProcessingGuarantee;
+    protected final OffsetsState offsetsState;
+    protected final WorkerThread<K, V> workerThread;
 
     public RecordStatusObserverImpl(
-            RecordProcessingOnSuccessAction onSuccessAction,
-            RecordProcessingOnFailureAction onFailureAction) {
-        this.recordStatus = new AtomicReference<>(PROCESSING);
-        this.onSuccessAction = onSuccessAction;
-        this.onFailureAction = onFailureAction;
+            WorkerRecord<K, V> record,
+            WorkersMetrics metrics,
+            WorkersConfig config,
+            OffsetsState offsetsState,
+            WorkerThread<K, V> workerThread
+    ) {
+        this.subpartition = record.workerSubpartition();
+        this.offset = record.offset();
+        this.metrics = metrics;
+        this.recordProcessingGuarantee = config.getRecordProcessingGuarantee();
+        this.offsetsState = offsetsState;
+        this.workerThread = workerThread;
     }
 
     @Override
     public void onSuccess() {
-        if (recordStatus.compareAndSet(PROCESSING, SUCCEEDED)) {
-            onSuccessAction.handleSuccess();
-        } else {
-            if (RecordRetainingAction.class.isAssignableFrom(onSuccessAction.getClass())) {
-                throw new IllegalObserverUsageException(((RecordRetainingAction) onSuccessAction).getWorkerRecord(),
-                        recordStatus.get(), "onSuccess");
-            } else {
-                throw new IllegalObserverUsageException(recordStatus.get(), "onSuccess");
-            }
-        }
+        markRecordProcessed();
     }
 
     @Override
     public void onFailure(Exception exception) {
-        if (recordStatus.compareAndSet(PROCESSING, FAILED)) {
-            onFailureAction.handleFailure(exception);
+        if (RecordProcessingGuarantee.AT_LEAST_ONCE.equals(recordProcessingGuarantee)) {
+            workerThread.shutdown(new ProcessingFailureException(
+                    "record processing failed, subpartition: " + subpartition + " , offset: " + offset, exception));
         } else {
-            if (RecordRetainingAction.class.isAssignableFrom(onFailureAction.getClass())) {
-                throw new IllegalObserverUsageException(((RecordRetainingAction) onFailureAction).getWorkerRecord(),
-                        recordStatus.get(), "onFailure");
-            } else {
-                throw new IllegalObserverUsageException(recordStatus.get(), "onFailure");
-            }
+            logger.warn("record processing failed, subpartition: " + subpartition + "offset: " + offset, exception);
+            markRecordProcessed();
         }
     }
 
+    private void markRecordProcessed() {
+        metrics.recordSensor(WorkersMetrics.PROCESSED_OFFSET_METRIC, subpartition, offset);
+        offsetsState.updateProcessed(subpartition.topicPartition(), offset);
+    }
 }

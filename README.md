@@ -170,31 +170,25 @@ Usage example:
    </td>
 </tr>
 <tr>
+   <td>worker.processing.guarantee</td>
+   </td>
+   <td>Specifies worker processing guarantees. Possible values:
+    <ul>
+        <li><code>none</code> - logs and skips records which cause processing failure, thus failures don't cause message retransmission and may result in data loss.</li>
+        <li><code>at_least_once</code> - shuts Kafka Workers down on record processing failure, enforces message retransmission upon restart and may cause data duplication.</li>
+    </ul>
+   </td>
+   <td>String</td>
+   </td>
+   <td><code>at_least_once</code></td>
+</tr>
+<tr>
    <td>worker.task</td>
    </td>
    <td>Could be used as a prefix for internal task configuration.
    </td>
    </td>
    <td></td>
-   </td>
-   <td></td>
-</tr>
-<tr>
-   <td>record.processing.failure.action</td>
-   </td>
-   <td>Determines what to do in case of record processing failure. Possible values: SHUTDOWN, SKIP, FALLBACK_TOPIC (the last one requires record.processing.fallback.topic setting).
-   </td>
-   <td>String</td>
-   </td>
-   <td>SHUTDOWN</td>
-</tr>
-<tr>
-   <td>record.processing.fallback.topic</td>
-   </td>
-   <td>Topic where failed records will be sent in case of record.processing.failure.action = FALLBACK_TOPIC.
-   </td>
-   </td>
-   <td>String</td>
    </td>
    <td></td>
 </tr>
