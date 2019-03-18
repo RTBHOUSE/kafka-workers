@@ -91,7 +91,9 @@ public class ProcessingFailureTest {
         // then
         assertThat(latch.await(10, TimeUnit.SECONDS)).isTrue();
         assertThat(exceptions.size()).isEqualTo(1);
-        assertThat(exceptions.get(0)).isExactlyInstanceOf(ProcessingFailureException.class);
+        Throwable t;
+        for (t = exceptions.get(0); t.getCause() != null; t = t.getCause());
+        assertThat(t).isExactlyInstanceOf(TestException.class);
     }
 
     private static class TestTask implements WorkerTask<String, String> {
@@ -101,12 +103,18 @@ public class ProcessingFailureTest {
         @Override
         public void process(WorkerRecord<String, String> record, RecordStatusObserver observer) {
             if (count == RECORD_TO_FAIL) {
-                throw new ProcessingFailureException("sample failure test on record: " + count);
+                throw new TestException("sample failure test on record: " + count);
             }
             count++;
             observer.onSuccess();
         }
 
+    }
+
+    private static class TestException extends RuntimeException {
+        public TestException(String message) {
+            super(message);
+        }
     }
 
     private static class TestTaskFactory implements WorkerTaskFactory<String, String> {
