@@ -47,8 +47,6 @@ public class WorkerTaskImpl<K, V> implements WorkerTask<K, V> {
         metrics.recordSensor(WorkersMetrics.PROCESSING_OFFSET_METRIC, subpartition, record.offset());
         try {
             task.process(record, observer);
-        } catch (WorkersException e) {
-            throw e;
         } catch (Exception e) {
             observer.onFailure(e);
         }
