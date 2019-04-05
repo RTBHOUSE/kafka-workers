@@ -19,7 +19,8 @@ public class OffsetCommitCallbackImpl implements OffsetCommitCallback {
 
     private static final Logger logger = LoggerFactory.getLogger(OffsetCommitCallbackImpl.class);
 
-    private final WorkersConfig config;
+    private final int maxFailuresInRow;
+
     private final ConsumerThread<?, ?> consumerThread;
     private final OffsetsState offsetsState;
     private final WorkersMetrics metrics;
@@ -31,7 +32,9 @@ public class OffsetCommitCallbackImpl implements OffsetCommitCallback {
             ConsumerThread<?, ?> consumerThread,
             OffsetsState offsetsState,
             WorkersMetrics metrics) {
-        this.config = config;
+
+        this.maxFailuresInRow = config.getInt(WorkersConfig.CONSUMER_MAX_RETRIABLE_FAILURES);
+
         this.consumerThread = consumerThread;
         this.offsetsState = offsetsState;
         this.metrics = metrics;
@@ -41,7 +44,6 @@ public class OffsetCommitCallbackImpl implements OffsetCommitCallback {
     public void onComplete(Map<TopicPartition, OffsetAndMetadata> offsets, Exception exception) {
         if (exception != null) {
             if (exception instanceof RetriableCommitFailedException) {
-                final int maxFailuresInRow = config.getInt(WorkersConfig.CONSUMER_MAX_RETRIABLE_FAILURES);
                 final int failureNum = failuresInRow.incrementAndGet();
                 if (failureNum <= maxFailuresInRow) {
                     logger.warn("retriable commit failed exception: {}, offsets: {}, failureNum: {}/{}",

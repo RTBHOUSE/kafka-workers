@@ -23,12 +23,17 @@ public class WorkerThread<K, V> extends AbstractWorkersThread {
     public static final Logger logger = LoggerFactory.getLogger(WorkerThread.class);
 
     private final int workerId;
+
+    private final long workerSleepMs;
+    private final long punctuatorIntervalMs;
+
     private final TaskManager<K, V> taskManager;
     private final QueuesManager<K, V> queueManager;
     private final List<WorkerTaskImpl<K, V>> tasks = new CopyOnWriteArrayList<>();
     private final OffsetsState offsetsState;
 
     private volatile boolean waiting = false;
+    private volatile long punctuateTime = System.currentTimeMillis();
 
     public WorkerThread(
             int workerId,
@@ -39,7 +44,12 @@ public class WorkerThread<K, V> extends AbstractWorkersThread {
             QueuesManager<K, V> queueManager,
             OffsetsState offsetsState) {
         super("worker-thread-" + workerId, config, metrics, workers);
+
         this.workerId = workerId;
+
+        this.workerSleepMs = config.getLong(WorkersConfig.WORKER_SLEEP_MS);
+        this.punctuatorIntervalMs = config.getLong(WorkersConfig.PUNCTUATOR_INTERVAL_MS);
+
         this.taskManager = taskManager;
         this.queueManager = queueManager;
         this.offsetsState = offsetsState;
@@ -53,7 +63,7 @@ public class WorkerThread<K, V> extends AbstractWorkersThread {
 
     @Override
     public void process() throws InterruptedException {
-        int accepting = 0, accepted = 0;
+        int checkedTasksCount = 0, acceptedTasksCount = 0;
         // gets tasks to process or blocks current thread in two cases:
         // 1. all assigned tasks have empty internal queues without any records to process (to avoid busy waiting)
         // 2. there are not any tasks assigned (e.g. because of tasks rebalance)
@@ -62,9 +72,9 @@ public class WorkerThread<K, V> extends AbstractWorkersThread {
             if (peekRecord == null) {
                 throw new WorkersException("peekRecord is null");
             }
-            accepting++;
+            checkedTasksCount++;
             if (task.accept(peekRecord)) {
-                accepted++;
+                acceptedTasksCount++;
                 WorkerRecord<K, V> pollRecord = queueManager.poll(task.subpartition());
                 if (pollRecord == null || !pollRecord.equals(peekRecord)) {
                     throw new WorkersException("peekRecord and pollRecord are different");
@@ -74,11 +84,22 @@ public class WorkerThread<K, V> extends AbstractWorkersThread {
                 task.process(pollRecord, observer);
             }
         }
-        if (accepted == 0) {
-            logger.debug("goes to sleep for {} ms because from {} peek records {} is accepted",
-                    config.getLong(WorkersConfig.WORKER_SLEEP_MS), accepting, accepted);
+
+        if (shouldPunctuateNow()) {
+            long currentTime = System.currentTimeMillis();
+            for (WorkerTaskImpl<K, V> task : tasks) {
+                task.punctuate(currentTime);
+            }
+            punctuateTime = currentTime;
+
+        } else if (acceptedTasksCount == 0) {
             // all records are not accepted to process so thread goes to sleep (again to avoid busy waiting)
-            Thread.sleep(config.getLong(WorkersConfig.WORKER_SLEEP_MS));
+
+            long sleepMillis = Math.min(workerSleepMs, remainingMsToPunctuate());
+            if (sleepMillis > 0) {
+                logger.debug("goes to sleep for {} ms because from {} peek records 0 is accepted", sleepMillis, checkedTasksCount);
+                Thread.sleep(sleepMillis);
+            }
         }
     }
 
@@ -123,13 +144,32 @@ public class WorkerThread<K, V> extends AbstractWorkersThread {
                 waiting = false;
                 // wakes thread up because at least one record was pushed to process
                 notifyAll();
+                break;
             }
         }
+        if (shouldPunctuateNow()) {
+            waiting = false;
+            // wakes thread up because should punctuate tasks
+            notifyAll();
+        }
+    }
+
+    public boolean shouldPunctuateNow() {
+        if (tasks.size() > 0 && remainingMsToPunctuate() <= 0) {
+            return true;
+        }
+        return false;
+    }
+
+    private long remainingMsToPunctuate() {
+        long currentTime = System.currentTimeMillis();
+        return punctuatorIntervalMs - (currentTime - punctuateTime);
     }
 
     private synchronized List<WorkerTaskImpl<K, V>> getTasksToProcess() throws InterruptedException {
         List<WorkerTaskImpl<K, V>> tasksToProcess = new ArrayList<>();
-        while (tasksToProcess.isEmpty() && !shutdown) { // in case of shutdown we do not want to block thread
+        while (tasksToProcess.isEmpty() && !shutdown && !shouldPunctuateNow()) {
+            // in case of shutdown or punctuate we do not want to block thread
             int queues = 0;
             for (WorkerTaskImpl<K, V> task : tasks) {
                 queues++;

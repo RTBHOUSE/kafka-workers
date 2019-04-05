@@ -10,6 +10,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+import com.rtbhouse.kafka.workers.impl.punctuator.PunctuatorThread;
 import org.apache.kafka.common.TopicPartition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -48,12 +49,13 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
 
     private ExecutorService executorService;
     private final List<WorkerThread<K, V>> workerThreads = new ArrayList<>();
+    private PunctuatorThread<K, V> punctuatorThread;
     private ConsumerThread<K, V> consumerThread;
 
     private ShutdownListenerThread shutdownThread;
     private final Object shutdownLock = new Object();
 
-    private volatile Status status;
+    private volatile Status status = Status.CREATED;
     private final Object statusLock = new Object();
 
     private WorkersException exception;
@@ -69,7 +71,6 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
         this.subpartitionSupplier = new SubpartitionSupplier<>(partitioner);
         this.callback = callback;
         this.offsetsState = new OffsetsState();
-        setStatus(Status.CREATED);
     }
 
     public void start() {
@@ -79,18 +80,24 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
         taskManager = new TaskManager<>(config, metrics, taskFactory, subpartitionSupplier, workerThreads);
         queueManager = new QueuesManager<>(config, metrics, subpartitionSupplier, taskManager);
 
-        final int numWorkers = config.getInt(WorkersConfig.WORKER_THREADS_NUM);
+        final int workerThreadsNum = config.getInt(WorkersConfig.WORKER_THREADS_NUM);
         consumerThread = new ConsumerThread<>(config, metrics, this, queueManager, subpartitionSupplier, offsetsState);
-        for (int i = 0; i < numWorkers; i++) {
-            workerThreads.add(new WorkerThread<>(i, config, metrics, this,
-                    taskManager, queueManager, offsetsState));
+        for (int i = 0; i < workerThreadsNum; i++) {
+            workerThreads.add(new WorkerThread<>(i, config, metrics, this,  taskManager, queueManager, offsetsState));
         }
+        punctuatorThread = new PunctuatorThread<>(config, metrics, this, workerThreads);
 
-        executorService = Executors.newFixedThreadPool(1 + numWorkers);
+        // number of threads includes:
+        // - configurable amount of worker threads
+        // - plus one consumer thread
+        // - plus one punctuator thread
+        final int allThreadsNum = workerThreadsNum + 2;
+        executorService = Executors.newFixedThreadPool(allThreadsNum);
         executorService.execute(consumerThread);
         for (WorkerThread<K, V> workerThread : workerThreads) {
             executorService.execute(workerThread);
         }
+        executorService.execute(punctuatorThread);
 
         setStatus(Status.STARTED);
         logger.info("kafka workers started");
@@ -132,6 +139,7 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
         metrics.removeSizeMetric(WORKER_THREAD_METRIC_GROUP, WORKER_THREAD_COUNT_METRIC_NAME);
 
         consumerThread.shutdown();
+        punctuatorThread.shutdown();
         for (WorkerThread<K, V> workerThread : workerThreads) {
             workerThread.shutdown();
         }

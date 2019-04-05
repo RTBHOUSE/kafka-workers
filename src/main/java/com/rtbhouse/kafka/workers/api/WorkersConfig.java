@@ -95,6 +95,13 @@ public class WorkersConfig extends AbstractConfig {
     public static final String WORKER_TASK_PREFIX = "worker.task.";
 
     /**
+     * The frequency in milliseconds that punctuate method is called.
+     */
+    public static final String PUNCTUATOR_INTERVAL_MS = "punctuator.interval.ms";
+    private static final String PUNCTUATOR_INTERVAL_MS_DOC = "The frequency in milliseconds that punctuate method is called.";
+    private static final long PUNCTUATOR_INTERVAL_MS_DEFAULT = Duration.of(1, ChronoUnit.SECONDS).toMillis();
+
+    /**
      * Max size in bytes for single {@link WorkerSubpartition}'s internal queue.
      */
     public static final String QUEUE_MAX_SIZE_BYTES = "queue.max.size.bytes";
@@ -165,6 +172,11 @@ public class WorkersConfig extends AbstractConfig {
                         },
                         Importance.MEDIUM,
                         WORKER_PROCESSING_GUARANTEE_DOC)
+                .define(PUNCTUATOR_INTERVAL_MS,
+                        Type.LONG,
+                        PUNCTUATOR_INTERVAL_MS_DEFAULT,
+                        Importance.MEDIUM,
+                        PUNCTUATOR_INTERVAL_MS_DOC)
                 .define(QUEUE_MAX_SIZE_BYTES,
                         Type.LONG,
                         QUEUE_MAX_SIZE_BYTES_DEFAULT,
@@ -197,7 +209,6 @@ public class WorkersConfig extends AbstractConfig {
 
     private void checkConfigFinals(String prefix, Map<String, Object> finals) {
         Map<String, Object> configs = originalsWithPrefix(prefix);
-        ;
         for (Map.Entry<String, Object> override : finals.entrySet()) {
             var value = configs.get(override.getKey());
             checkState(value == null || value.equals(override.getValue()), "Config [%s] should be set to [%s]",
