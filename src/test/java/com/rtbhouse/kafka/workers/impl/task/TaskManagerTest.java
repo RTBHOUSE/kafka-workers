@@ -56,7 +56,6 @@ public class TaskManagerTest {
         // given
         WorkerRecord<byte[], byte[]> record = new WorkerRecord<>(new ConsumerRecord<>("topic", 0, 0L, null, null), 0);
         when(queueManager.peek(any())).thenReturn(record);
-        when(queueManager.poll(any())).thenReturn(record);
 
         WorkerTaskFactory<byte[], byte[]> taskFactory = new TaskFactory();
         SubpartitionSupplier<byte[], byte[]> subpartitionSupplier = new SubpartitionSupplier<>(new RoundRobinPartitioner<>(10));

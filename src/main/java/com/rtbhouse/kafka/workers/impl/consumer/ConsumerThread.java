@@ -2,6 +2,7 @@ package com.rtbhouse.kafka.workers.impl.consumer;
 
 import java.time.Duration;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -31,12 +32,17 @@ public class ConsumerThread<K, V> extends AbstractWorkersThread implements Parti
 
     private static final Logger logger = LoggerFactory.getLogger(ConsumerThread.class);
 
+    private final Duration consumerPollTimeout;
+    private final long consumerProcessingTimeoutMs;
+    private final long consumerCommitIntervalMs;
+
     private final QueuesManager<K, V> queuesManager;
     private final SubpartitionSupplier<K, V> subpartitionSupplier;
     private final OffsetsState offsetsState;
     private final KafkaConsumer<K, V> consumer;
     private final ConsumerRebalanceListenerImpl<K, V> listener;
     private final OffsetCommitCallback commitCallback;
+
     private long commitTime = System.currentTimeMillis();
 
     public ConsumerThread(
@@ -47,6 +53,11 @@ public class ConsumerThread<K, V> extends AbstractWorkersThread implements Parti
             SubpartitionSupplier<K, V> subpartitionSupplier,
             OffsetsState offsetsState) {
         super("consumer-thread", config, metrics, workers);
+
+        this.consumerPollTimeout = Duration.ofMillis(config.getLong(WorkersConfig.CONSUMER_POLL_TIMEOUT_MS));
+        this.consumerProcessingTimeoutMs = config.getLong(WorkersConfig.CONSUMER_PROCESSING_TIMEOUT_MS);
+        this.consumerCommitIntervalMs = config.getLong(WorkersConfig.CONSUMER_COMMIT_INTERVAL_MS);
+
         this.queuesManager = queuesManager;
         this.subpartitionSupplier = subpartitionSupplier;
         this.offsetsState = offsetsState;
@@ -64,7 +75,7 @@ public class ConsumerThread<K, V> extends AbstractWorkersThread implements Parti
     public void process() {
         ConsumerRecords<K, V> records;
         try {
-            records = consumer.poll(Duration.ofMillis(config.getLong(WorkersConfig.CONSUMER_POLL_TIMEOUT_MS)));
+            records = consumer.poll(consumerPollTimeout);
         } catch (WakeupException e) {
             if (!shutdown) {
                 throw new WorkersException("unexpected consumer wakeup", e);
@@ -101,7 +112,7 @@ public class ConsumerThread<K, V> extends AbstractWorkersThread implements Parti
             }
         }
         if (shouldCommitNow()) {
-            long minTimestamp = System.currentTimeMillis() - config.getLong(WorkersConfig.CONSUMER_PROCESSING_TIMEOUT_MS);
+            long minTimestamp = System.currentTimeMillis() - consumerProcessingTimeoutMs;
             Map<TopicPartition, OffsetAndMetadata> offsets = offsetsState.getOffsetsToCommit(consumer.assignment(), minTimestamp);
             logger.debug("committing offsets async: {}", offsets);
             if (!offsets.isEmpty()) {
@@ -143,7 +154,7 @@ public class ConsumerThread<K, V> extends AbstractWorkersThread implements Parti
 
     private boolean shouldCommitNow() {
         long currentTime = System.currentTimeMillis();
-        if (currentTime - commitTime > config.getLong(WorkersConfig.CONSUMER_COMMIT_INTERVAL_MS)) {
+        if (currentTime - commitTime > consumerCommitIntervalMs) {
             commitTime = currentTime;
             return true;
         }

@@ -50,6 +50,16 @@ public interface WorkerTask<K, V> {
     void process(WorkerRecord<K, V> record, RecordStatusObserver observer);
 
     /**
+     * Allows to do maintenance tasks every configurable amount of time independently if there are records to process or not.
+     * All the methods: accept(), process() and punctuate() are executed in a single thread so synchronization is not necessary.
+     *
+     * @param punctuateTime
+     *              current time when punctuate() is called
+     */
+    default void punctuate(long punctuateTime) {
+    }
+
+    /**
      * Will be called every time when given {@link WorkerSubpartition} is being revoked from {@code KafkaWorkers}
      * instance.
      */

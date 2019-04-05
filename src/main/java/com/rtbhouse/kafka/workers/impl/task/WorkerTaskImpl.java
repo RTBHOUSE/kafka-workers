@@ -53,6 +53,11 @@ public class WorkerTaskImpl<K, V> implements WorkerTask<K, V> {
     }
 
     @Override
+    public void punctuate(long punctuateTime) {
+        task.punctuate(punctuateTime);
+    }
+
+    @Override
     public void close() {
         task.close();
         metrics.removeWorkerThreadSubpartitionMetrics(subpartition);
