@@ -197,9 +197,9 @@ Usage example:
    <td></td>
 </tr>
 <tr>
-   <td>punctuator.interval.m</td>
+   <td>punctuator.interval.ms</td>
    </td>
-   <td>TThe frequency in milliseconds that punctuate method is called.</td>
+   <td>The frequency in milliseconds that punctuate method is called.</td>
    </td>
    <td>long</td>
    </td>
