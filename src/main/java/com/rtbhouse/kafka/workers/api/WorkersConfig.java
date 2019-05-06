@@ -116,6 +116,13 @@ public class WorkersConfig extends AbstractConfig {
     private static final Long QUEUE_TOTAL_MAX_SIZE_BYTES_DEFAULT = null;
 
     /**
+     * The minimum ratio of used to total queue size for partition resuming.
+     */
+    public static final String QUEUE_RESUME_RATIO = "queue.resume.ratio";
+    private static final String QUEUE_RESUME_RATIO_DOC = "The minimum ratio of used to total queue size for partition resuming.";
+    private static final double QUEUE_RESUME_RATIO_DEFAULT = 0.9;
+
+    /**
      * A list of {@link MetricsReporter}s which report {@code KafkaWorkers}'s metrics.
      */
     public static final String METRIC_REPORTER_CLASSES = CommonClientConfigs.METRIC_REPORTER_CLASSES_CONFIG;
@@ -187,6 +194,16 @@ public class WorkersConfig extends AbstractConfig {
                         QUEUE_TOTAL_MAX_SIZE_BYTES_DEFAULT,
                         Importance.MEDIUM,
                         QUEUE_TOTAL_MAX_SIZE_BYTES_DOC)
+                .define(QUEUE_RESUME_RATIO,
+                        Type.DOUBLE,
+                        QUEUE_RESUME_RATIO_DEFAULT,
+                        (name, value) -> {
+                            if (value == null || (double)value < 0 || (double)value > 1) {
+                                throw new ConfigException("Value: [%s] should be in range [0, 1]", value);
+                            }
+                        },
+                        Importance.MEDIUM,
+                        QUEUE_RESUME_RATIO_DOC)
                 .define(METRIC_REPORTER_CLASSES,
                         Type.LIST,
                         METRIC_REPORTER_CLASSES_DEFAULT,
