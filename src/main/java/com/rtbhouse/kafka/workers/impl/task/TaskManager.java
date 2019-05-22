@@ -116,7 +116,7 @@ public class TaskManager<K, V> implements Partitioned {
     }
 
     private boolean allThreadsStopped() {
-        return threads.stream().allMatch(WorkerThread::isStopped);
+        return threads.stream().allMatch(WorkerThread::isNotRunning);
     }
 
 }

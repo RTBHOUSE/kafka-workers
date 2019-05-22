@@ -19,7 +19,7 @@ public abstract class AbstractWorkersThread extends Thread {
     protected volatile boolean shutdown = false;
     private volatile WorkersException exception;
 
-    protected volatile boolean closed = false;
+    protected volatile boolean stopped = false;
 
     public AbstractWorkersThread(String name, WorkersConfig config, WorkersMetrics metrics, KafkaWorkersImpl<?, ?> workers) {
         super(name);
@@ -64,13 +64,9 @@ public abstract class AbstractWorkersThread extends Thread {
             logger.error("Thread shuts down KafkaWorkers", e);
             workers.shutdown(wrapIfNeeded(e));
         } finally {
-            try {
-                close();
-            } finally {
-                closed = true;
-            }
+            stopped = true;
         }
-        logger.info("thread {} closed", name);
+        logger.info("thread {} stopped", name);
     }
 
     private WorkersException wrapIfNeeded(Throwable e) {

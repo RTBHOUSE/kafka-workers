@@ -111,18 +111,15 @@ public class ConsumerThread<K, V> extends AbstractWorkersThread implements Parti
                 metrics.recordSensor(WorkersMetrics.PAUSED_PARTITIONS_METRIC, partition, 0L);
             }
         }
+
         if (shouldCommitNow()) {
-            long minTimestamp = System.currentTimeMillis() - consumerProcessingTimeoutMs;
-            Map<TopicPartition, OffsetAndMetadata> offsets = offsetsState.getOffsetsToCommit(consumer.assignment(), minTimestamp);
-            logger.debug("committing offsets async: {}", offsets);
-            if (!offsets.isEmpty()) {
-                consumer.commitAsync(offsets, commitCallback);
-            }
+            commitAsync();
         }
     }
 
     @Override
     public void close() {
+        commitSync();
         consumer.close();
     }
 
@@ -142,13 +139,33 @@ public class ConsumerThread<K, V> extends AbstractWorkersThread implements Parti
     @Override
     public void unregister(Collection<TopicPartition> topicPartitions) {
         // commits all processed records so far to avoid unnecessary work or too many duplicates after rebalance
-        Map<TopicPartition, OffsetAndMetadata> offsets = offsetsState.getOffsetsToCommit(consumer.assignment(), null);
-        if (!offsets.isEmpty()) {
-            consumer.commitSync(offsets);
-        }
+        commitSync();
 
         for (TopicPartition partition : topicPartitions) {
             metrics.removeConsumerThreadMetrics(partition);
+        }
+    }
+
+    private void commitSync() {
+        Map<TopicPartition, OffsetAndMetadata> offsets = offsetsState.getOffsetsToCommit(consumer.assignment(), null);
+        logger.debug("committing offsets sync: {}", offsets);
+        if (!offsets.isEmpty()) {
+            try {
+                consumer.commitSync(offsets);
+            } catch (WakeupException e) {
+                // this has to be repeated if consumer.wakeup() during thread shutdown hasn't woken up any pending poll
+                // operation
+                consumer.commitSync(offsets);
+            }
+        }
+    }
+
+    private void commitAsync() {
+        long minTimestamp = System.currentTimeMillis() - consumerProcessingTimeoutMs;
+        Map<TopicPartition, OffsetAndMetadata> offsets = offsetsState.getOffsetsToCommit(consumer.assignment(), minTimestamp);
+        logger.debug("committing offsets async: {}", offsets);
+        if (!offsets.isEmpty()) {
+            consumer.commitAsync(offsets, commitCallback);
         }
     }
 

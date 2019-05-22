@@ -134,8 +134,8 @@ public class WorkerThread<K, V> extends AbstractWorkersThread {
         return tasks.size();
     }
 
-    public boolean isStopped() {
-        return waiting || closed;
+    public boolean isNotRunning() {
+        return waiting || stopped;
     }
 
     public synchronized void notifyThread() {
