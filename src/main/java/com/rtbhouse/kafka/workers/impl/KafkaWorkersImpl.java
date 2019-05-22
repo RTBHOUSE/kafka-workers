@@ -138,6 +138,7 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
 
         metrics.removeSizeMetric(WORKER_THREAD_METRIC_GROUP, WORKER_THREAD_COUNT_METRIC_NAME);
 
+        // firstly stop threads processing
         consumerThread.shutdown();
         punctuatorThread.shutdown();
         for (WorkerThread<K, V> workerThread : workerThreads) {
@@ -149,13 +150,21 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
         try {
             while (!executorService.awaitTermination(1L, TimeUnit.MINUTES)) {
                 logger.error("still waiting for termination");
-                // notifies TaskManager to wake up and check if threads are closed
+                // notifies TaskManager to wake up and check if threads are stopped
                 taskManager.notifyTaskManager();
             }
         } catch (InterruptedException e) {
             logger.error("interrupted: {}", e);
         }
-        logger.info("executor service closed");
+
+        // then close and clean up any pending resources
+        for (WorkerThread<K, V> workerThread : workerThreads) {
+            closeThreadResources(workerThread);
+        }
+        closeThreadResources(consumerThread);
+        closeThreadResources(punctuatorThread);
+
+        logger.info("executor service stopped");
 
         if (callback != null) {
             callback.onShutdown(exception);
@@ -183,8 +192,8 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
         logger.info("partitions unregistered: {}", partitions);
         taskManager.unregister(partitions);
         queueManager.unregister(partitions);
-        offsetsState.unregister(partitions);
         consumerThread.unregister(partitions);
+        offsetsState.unregister(partitions);
     }
 
     private void setStatus(Status newStatus) {
@@ -203,6 +212,14 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
             }
         }
         return false;
+    }
+
+    private void closeThreadResources(AbstractWorkersThread thread) {
+        try {
+            thread.close();
+        } catch (Exception e) {
+            logger.warn("caught exception while closing resources for thread: {}", thread,  e);
+        }
     }
 
     private boolean isValidChange(Status oldStatus, Status newStatus) {
