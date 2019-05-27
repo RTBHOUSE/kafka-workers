@@ -11,7 +11,7 @@ Kafka Workers is a client library which unifies records consuming from Kafka and
 
 ## Version
 
-Current version is **1.0.10**
+Current version is **1.0.11**
 
 ## Requirements
 
@@ -19,13 +19,13 @@ You need Java 11 and at least Apache Kafka 2.0 to use this library.
 
 ## Installation
 
-Releases are distributed on Maven central:
+Releases are distributed on [Maven central](https://mvnrepository.com/artifact/com.rtbhouse/kafka-workers):
 
 ```xml
 <dependency>
     <groupId>com.rtbhouse</groupId>
     <artifactId>kafka-workers</artifactId>
-    <version>1.0.10</version>
+    <version>1.0.11</version>
 </dependency>
 ```
 
@@ -47,7 +47,7 @@ public interface WorkerTask<K, V> {
     void close();
 }
 ```
-User-defined task which is associated with one of WorkerSubpartitions. The most crucial are: accept() and process() methods. The first one checks if given WorkerRecord could be polled from internal WorkerSubpartition's queue peek and passed to process method. The second one processes just polled WorkerRecord from given WorkerSubpartition's internal queue. Processing could be done synchronously or asynchronously but in both cases one of the RecordStatusObserver's methods onSuccess() or onFailure() has to be called. Not calling any of these methods for configurable amount of time will be considered as a failure. Additionally, punctuate() method allows to do maintenance tasks every configurable amount of time independently if there are records to process or not. All the methods: accept(), process() and punctuate() are executed in a single thread so synchronization is not necessary.
+User-defined task which is associated with one of WorkerSubpartitions. The most crucial are: accept() and process() methods. The first one checks if given WorkerRecord could be polled from internal WorkerSubpartition's queue peek and passed to process method. The second one processes just polled WorkerRecord from given WorkerSubpartition's internal queue. Processing could be done synchronously or asynchronously but in both cases one of the RecordStatusObserver's methods onSuccess() or onFailure() has to be called. Not calling any of these methods for configurable amount of time will be considered as a failure. Additionally, punctuate() method allows to do maintenance tasks every configurable amount of time independently if there are records to process or not. All the methods: accept(), process() and punctuate() are executed in a single thread sequentially so synchronization is not necessary. What is more, both methods: init() and close() are synchronized with these accept(), process() and punctuate() internally by Kafka Workers so additional user synchronization is not necessary for these calls as well.
 
 ```java
 public interface WorkerPartitioner<K, V> {
@@ -224,6 +224,16 @@ Usage example:
    <td>long</td>
    </td>
    <td>null</td>
+   </td>
+</tr>
+<tr>
+   <td>queue.resume.ratio</td>
+   </td>
+   <td>The minimum ratio of used to total queue size for partition resuming.</td>
+   </td>
+   <td>double</td>
+   </td>
+   <td>0.9</td>
    </td>
 </tr>
 <tr>

@@ -61,7 +61,8 @@ public interface WorkerTask<K, V> {
 
     /**
      * Will be called every time when given {@link WorkerSubpartition} is being revoked from {@code KafkaWorkers}
-     * instance.
+     * instance. Both methods: init() and close() are synchronized with accept(), process() and punctuate() internally by Kafka Workers
+     * so additional user synchronization is not necessary for these calls as well.
      */
     default void close() {
     }
