@@ -48,7 +48,7 @@ public class TaskManager<K, V> implements Partitioned {
         stopThreads();
 
         for (WorkerSubpartition subpartition : subpartitionSupplier.subpartitions(topicPartitions)) {
-            WorkerTaskImpl<K, V> task = new WorkerTaskImpl<>(taskFactory.createTask(config), metrics);
+            WorkerTaskImpl<K, V> task = new WorkerTaskImpl<>(taskFactory.createTask(config, subpartition), metrics);
             task.init(subpartition, config);
             partitionToTaskMap.put(subpartition, task);
         }
