@@ -22,7 +22,7 @@ import com.rtbhouse.kafka.workers.api.KafkaWorkers;
 import com.rtbhouse.kafka.workers.api.ShutdownCallback;
 import com.rtbhouse.kafka.workers.api.WorkersConfig;
 import com.rtbhouse.kafka.workers.api.WorkersException;
-import com.rtbhouse.kafka.workers.api.record.RecordStatusObserver;
+import com.rtbhouse.kafka.workers.api.observer.StatusObserver;
 import com.rtbhouse.kafka.workers.api.record.WorkerRecord;
 import com.rtbhouse.kafka.workers.api.task.WorkerTask;
 import com.rtbhouse.kafka.workers.api.task.WorkerTaskFactory;
@@ -105,7 +105,7 @@ public class ProcessingTimeoutTest {
         private int count = 0;
 
         @Override
-        public void process(WorkerRecord<String, String> record, RecordStatusObserver observer) {
+        public void process(WorkerRecord<String, String> record, StatusObserver observer) {
             if (count != RECORD_NOT_TO_PROCESS) {
                 observer.onSuccess();
             }

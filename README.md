@@ -2,7 +2,7 @@
 
 Kafka Workers is a client library which unifies records consuming from Kafka and processing them by user-defined WorkerTasks. It provides:
  - higher level of distribution because of sub-partitioning defined by **WorkerPartitioner**,
- - tighter control of offsets commits to Kafka applied by **RecordStatusObserver**,
+ - tighter control of offsets commits to Kafka applied by **StatusObserver**,
  - possibility to pause and resume processing by **WorkerTask** for given partition,
  - at-least-once state and output semantics,
  - backpressure,
@@ -40,14 +40,14 @@ public interface WorkerTask<K, V> {
 
     boolean accept(WorkerRecord<K, V> record);
 
-    void process(WorkerRecord<K, V> record, RecordStatusObserver observer);
+    void process(WorkerRecord<K, V> record, StatusObserver observer);
 
     void punctuate(long punctuateTime);
 
     void close();
 }
 ```
-User-defined task which is associated with one of WorkerSubpartitions. The most crucial are: accept() and process() methods. The first one checks if given WorkerRecord could be polled from internal WorkerSubpartition's queue peek and passed to process method. The second one processes just polled WorkerRecord from given WorkerSubpartition's internal queue. Processing could be done synchronously or asynchronously but in both cases one of the RecordStatusObserver's methods onSuccess() or onFailure() has to be called. Not calling any of these methods for configurable amount of time will be considered as a failure. Additionally, punctuate() method allows to do maintenance tasks every configurable amount of time independently if there are records to process or not. All the methods: accept(), process() and punctuate() are executed in a single thread so synchronization is not necessary.
+User-defined task which is associated with one of WorkerSubpartitions. The most crucial are: accept() and process() methods. The first one checks if given WorkerRecord could be polled from internal WorkerSubpartition's queue peek and passed to process method. The second one processes just polled WorkerRecord from given WorkerSubpartition's internal queue. Processing could be done synchronously or asynchronously but in both cases one of the StatusObserver's methods onSuccess() or onFailure() has to be called. Not calling any of these methods for configurable amount of time will be considered as a failure. Additionally, punctuate() method allows to do maintenance tasks every configurable amount of time independently if there are records to process or not. All the methods: accept(), process() and punctuate() are executed in a single thread so synchronization is not necessary.
 
 ```java
 public interface WorkerPartitioner<K, V> {

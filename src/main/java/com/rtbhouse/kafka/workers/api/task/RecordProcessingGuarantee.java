@@ -1,9 +1,10 @@
-package com.rtbhouse.kafka.workers.api.record;
+package com.rtbhouse.kafka.workers.api.task;
 
 import com.rtbhouse.kafka.workers.api.KafkaWorkers;
+import com.rtbhouse.kafka.workers.api.observer.StatusObserver;
 
 /**
- * Used to describe record processing guarantee through behaviour of {@link RecordStatusObserver} implementation.
+ * Used to describe record processing guarantee through behaviour of {@link StatusObserver} implementation.
  *
  */
 public enum RecordProcessingGuarantee {

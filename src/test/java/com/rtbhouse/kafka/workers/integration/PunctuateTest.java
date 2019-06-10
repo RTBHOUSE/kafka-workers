@@ -20,7 +20,7 @@ import org.slf4j.LoggerFactory;
 
 import com.rtbhouse.kafka.workers.api.KafkaWorkers;
 import com.rtbhouse.kafka.workers.api.WorkersConfig;
-import com.rtbhouse.kafka.workers.api.record.RecordStatusObserver;
+import com.rtbhouse.kafka.workers.api.observer.StatusObserver;
 import com.rtbhouse.kafka.workers.api.record.WorkerRecord;
 import com.rtbhouse.kafka.workers.api.task.WorkerTask;
 import com.rtbhouse.kafka.workers.api.task.WorkerTaskFactory;
@@ -65,7 +65,7 @@ public class PunctuateTest {
     }
 
     @Test
-    public void shouldShutdownWorkers() throws Exception {
+    public void shouldRunPunctuate() throws Exception {
 
         // given
         for (int i = 0; i < RECORDS_COUNT; i++) {
@@ -95,7 +95,7 @@ public class PunctuateTest {
         }
 
         @Override
-        public void process(WorkerRecord<String, String> record, RecordStatusObserver observer) {
+        public void process(WorkerRecord<String, String> record, StatusObserver observer) {
             observer.onSuccess();
         }
 

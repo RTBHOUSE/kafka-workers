@@ -1,28 +1,39 @@
 package com.rtbhouse.kafka.workers.impl.task;
 
+import java.util.Set;
+
 import com.rtbhouse.kafka.workers.api.WorkersConfig;
-import com.rtbhouse.kafka.workers.api.WorkersException;
+import com.rtbhouse.kafka.workers.api.observer.StatusObserver;
 import com.rtbhouse.kafka.workers.api.partitioner.WorkerSubpartition;
-import com.rtbhouse.kafka.workers.api.record.RecordStatusObserver;
 import com.rtbhouse.kafka.workers.api.record.WorkerRecord;
+import com.rtbhouse.kafka.workers.api.task.RecordProcessingGuarantee;
 import com.rtbhouse.kafka.workers.api.task.WorkerTask;
+import com.rtbhouse.kafka.workers.impl.KafkaWorkersImpl;
+import com.rtbhouse.kafka.workers.impl.errors.ProcessingFailureException;
 import com.rtbhouse.kafka.workers.impl.metrics.WorkersMetrics;
+import com.rtbhouse.kafka.workers.impl.observer.SubpartitionObserver;
+import com.rtbhouse.kafka.workers.impl.offsets.OffsetsState;
 
 public class WorkerTaskImpl<K, V> implements WorkerTask<K, V> {
 
     // user-defined task to process
     private final WorkerTask<K, V> task;
 
-    private final WorkersMetrics metrics;
-
     // subpartition which is associated with given task in one-to-one relation
     private WorkerSubpartition subpartition;
 
+    private final SubpartitionObserver observer;
+
     private WorkerThread<K, V> thread;
 
-    public WorkerTaskImpl(WorkerTask<K, V> task, WorkersMetrics metrics) {
+    public WorkerTaskImpl(
+            WorkerTask<K, V> task,
+            WorkersConfig config,
+            OffsetsState offsetsState,
+            KafkaWorkersImpl<?, ?> workers,
+            WorkersMetrics metrics) {
         this.task = task;
-        this.metrics = metrics;
+        this.observer = observer;
     }
 
     @Override
@@ -43,7 +54,7 @@ public class WorkerTaskImpl<K, V> implements WorkerTask<K, V> {
     }
 
     @Override
-    public void process(WorkerRecord<K, V> record, RecordStatusObserver observer) {
+    public void process(WorkerRecord<K, V> record, StatusObserver observer) {
         metrics.recordSensor(WorkersMetrics.PROCESSING_OFFSET_METRIC, subpartition, record.offset());
         try {
             task.process(record, observer);
@@ -63,9 +74,24 @@ public class WorkerTaskImpl<K, V> implements WorkerTask<K, V> {
         metrics.removeWorkerThreadSubpartitionMetrics(subpartition);
     }
 
+    public void onSuccess(Set<Long> offsets) {
+        markProcessed(offsets);
+    }
+
+    public void onFailure(Set<Long> offsets, Exception exception) {
+        if (RecordProcessingGuarantee.AT_LEAST_ONCE.equals(recordProcessingGuarantee)) {
+            workers.shutdown(new ProcessingFailureException(
+                    "record processing failed, subpartition: " + subpartition + " , offsets: " + offsets, exception));
+        } else {
+            markProcessed(offsets);
+        }
+    }
+
     public WorkerSubpartition subpartition() {
         return subpartition;
     }
+
+
 
     public void setThread(WorkerThread<K, V> thread) {
         this.thread = thread;

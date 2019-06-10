@@ -5,16 +5,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-import org.apache.kafka.common.TopicPartition;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.rtbhouse.kafka.workers.api.WorkersConfig;
 import com.rtbhouse.kafka.workers.api.partitioner.WorkerSubpartition;
 import com.rtbhouse.kafka.workers.api.task.WorkerTaskFactory;
+import com.rtbhouse.kafka.workers.impl.KafkaWorkersImpl;
 import com.rtbhouse.kafka.workers.impl.Partitioned;
 import com.rtbhouse.kafka.workers.impl.metrics.WorkersMetrics;
+import com.rtbhouse.kafka.workers.impl.offsets.OffsetsState;
 import com.rtbhouse.kafka.workers.impl.partitioner.SubpartitionSupplier;
+import org.apache.kafka.common.TopicPartition;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class TaskManager<K, V> implements Partitioned {
 
@@ -22,9 +23,11 @@ public class TaskManager<K, V> implements Partitioned {
 
     private final WorkersConfig config;
     private final WorkersMetrics metrics;
+    private final KafkaWorkersImpl<K, V> workers;
     private final WorkerTaskFactory<K, V> taskFactory;
     private final SubpartitionSupplier<K, V> subpartitionSupplier;
     private final List<WorkerThread<K, V>> threads;
+    private final OffsetsState offsetsState;
 
     private final Map<WorkerSubpartition, WorkerTaskImpl<K, V>> partitionToTaskMap = new ConcurrentHashMap<>();
 
@@ -33,14 +36,18 @@ public class TaskManager<K, V> implements Partitioned {
     public TaskManager(
             WorkersConfig config,
             WorkersMetrics metrics,
+            KafkaWorkersImpl<K, V> workers,
             WorkerTaskFactory<K, V> taskFactory,
             SubpartitionSupplier<K, V> subpartitionSupplier,
-            List<WorkerThread<K, V>> threads) {
+            List<WorkerThread<K, V>> threads,
+            OffsetsState offsetsState) {
         this.config = config;
         this.metrics = metrics;
+        this.workers = workers;
         this.taskFactory = taskFactory;
         this.subpartitionSupplier = subpartitionSupplier;
         this.threads = threads;
+        this.offsetsState = offsetsState;
     }
 
     @Override
@@ -48,7 +55,7 @@ public class TaskManager<K, V> implements Partitioned {
         stopThreads();
 
         for (WorkerSubpartition subpartition : subpartitionSupplier.subpartitions(topicPartitions)) {
-            WorkerTaskImpl<K, V> task = new WorkerTaskImpl<>(taskFactory.createTask(config), metrics);
+            WorkerTaskImpl<K, V> task = new WorkerTaskImpl<>(taskFactory.createTask(config), config, offsetsState, workers, metrics);
             task.init(subpartition, config);
             partitionToTaskMap.put(subpartition, task);
         }

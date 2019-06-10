@@ -32,24 +32,24 @@ public class OffsetsState implements Partitioned {
         }
     }
 
-    private Map<TopicPartition, Map<Long, Info>> offsets = new ConcurrentHashMap<>();
+    private Map<TopicPartition, Map<Long, Info>> offsetsMap = new ConcurrentHashMap<>();
 
     @Override
     public void register(Collection<TopicPartition> partitions) {
         for (TopicPartition partition : partitions) {
-            offsets.put(partition, new ConcurrentSkipListMap<>());
+            offsetsMap.put(partition, new ConcurrentSkipListMap<>());
         }
     }
 
     @Override
     public void unregister(Collection<TopicPartition> partitions) {
         for (TopicPartition partition : partitions) {
-            offsets.remove(partition);
+            offsetsMap.remove(partition);
         }
     }
 
     public void addConsumed(TopicPartition partition, long offset, long timestamp) {
-        offsets.computeIfPresent(partition, (k, v) -> {
+        offsetsMap.computeIfPresent(partition, (k, v) -> {
             if (v.get(offset) != null) {
                 throw new BadOffsetException("Offset: " + offset + " for partition: " + partition + " was consumed before");
             }
@@ -59,7 +59,7 @@ public class OffsetsState implements Partitioned {
     }
 
     public void updateProcessed(TopicPartition partition, long offset) {
-        offsets.computeIfPresent(partition, (k, v) -> {
+        offsetsMap.computeIfPresent(partition, (k, v) -> {
             Info info = v.get(offset);
             if (info == null) {
                 throw new BadOffsetException("Offset: " + offset + " for partition: " + partition + " was not consumed before");
@@ -75,7 +75,7 @@ public class OffsetsState implements Partitioned {
     public Map<TopicPartition, OffsetAndMetadata> getOffsetsToCommit(Set<TopicPartition> assignedPartitions, Long minTimestamp) {
         Map<TopicPartition, OffsetAndMetadata> offsetsAndMetadata = new HashMap<>();
         for (TopicPartition partition : assignedPartitions) {
-            Map<Long, Info> partitionOffsets = offsets.get(partition);
+            Map<Long, Info> partitionOffsets = offsetsMap.get(partition);
             if (partitionOffsets == null) {
                 continue;
             }
@@ -91,7 +91,7 @@ public class OffsetsState implements Partitioned {
         for (Map.Entry<TopicPartition, OffsetAndMetadata> entry : offsetsAndMetadata.entrySet()) {
             TopicPartition partition = entry.getKey();
             long offset = entry.getValue().offset();
-            Map<Long, Info> partitionOffsets = offsets.get(partition);
+            Map<Long, Info> partitionOffsets = offsetsMap.get(partition);
             if (partitionOffsets == null) {
                 continue;
             }

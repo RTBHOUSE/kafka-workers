@@ -3,7 +3,7 @@ package com.rtbhouse.kafka.workers.api;
 import com.rtbhouse.kafka.workers.api.partitioner.DefaultPartitioner;
 import com.rtbhouse.kafka.workers.api.partitioner.WorkerPartitioner;
 import com.rtbhouse.kafka.workers.api.partitioner.WorkerSubpartition;
-import com.rtbhouse.kafka.workers.api.record.RecordStatusObserver;
+import com.rtbhouse.kafka.workers.api.observer.StatusObserver;
 import com.rtbhouse.kafka.workers.api.record.WorkerRecord;
 import com.rtbhouse.kafka.workers.api.task.WorkerTask;
 import com.rtbhouse.kafka.workers.api.task.WorkerTaskFactory;
@@ -16,7 +16,7 @@ import com.rtbhouse.kafka.workers.impl.KafkaWorkersImpl;
  * It provides:
  * <ol>
  * <li>higher level of distribution because of sub-partitioning defined by {@link WorkerPartitioner},</li>
- * <li>tighter control of offsets commits to Kafka applied by {@link RecordStatusObserver},</li>
+ * <li>tighter control of offsets commits to Kafka applied by {@link StatusObserver},</li>
  * <li>possibility to pause and resume processing by {@link WorkerTask} for given partition.</li>
  * </ol>
  * <p>

@@ -1,5 +1,7 @@
 package com.rtbhouse.kafka.workers.integration.utils;
 
+import org.apache.kafka.clients.admin.AdminClientConfig;
+
 import java.util.Properties;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -49,6 +51,12 @@ public final class TestProperties {
         consumerProperties.put("group.id", "consumer" + ThreadLocalRandom.current().nextInt());
         consumerProperties.put("auto.offset.reset", "earliest");
         return consumerProperties;
+    }
+
+    public static <K, V> Properties adminClientProperties() {
+        Properties adminClientProperties = new Properties();
+        adminClientProperties.put("bootstrap.servers", BOOTSTRAP_SERVERS);
+        return adminClientProperties;
     }
 
 }

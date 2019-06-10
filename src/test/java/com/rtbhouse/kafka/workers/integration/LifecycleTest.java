@@ -19,7 +19,7 @@ import com.rtbhouse.kafka.workers.api.KafkaWorkers;
 import com.rtbhouse.kafka.workers.api.ShutdownCallback;
 import com.rtbhouse.kafka.workers.api.WorkersConfig;
 import com.rtbhouse.kafka.workers.api.WorkersException;
-import com.rtbhouse.kafka.workers.api.record.RecordStatusObserver;
+import com.rtbhouse.kafka.workers.api.observer.StatusObserver;
 import com.rtbhouse.kafka.workers.api.record.WorkerRecord;
 import com.rtbhouse.kafka.workers.api.task.WorkerTask;
 import com.rtbhouse.kafka.workers.api.task.WorkerTaskFactory;
@@ -138,7 +138,7 @@ public class LifecycleTest {
             return new WorkerTask<byte[], byte[]>() {
 
                 @Override
-                public void process(WorkerRecord<byte[], byte[]> record, RecordStatusObserver observer) {
+                public void process(WorkerRecord<byte[], byte[]> record, StatusObserver observer) {
                 }
 
             };

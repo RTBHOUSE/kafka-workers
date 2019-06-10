@@ -20,7 +20,7 @@ import com.rtbhouse.kafka.workers.api.KafkaWorkers;
 import com.rtbhouse.kafka.workers.api.ShutdownCallback;
 import com.rtbhouse.kafka.workers.api.WorkersConfig;
 import com.rtbhouse.kafka.workers.api.WorkersException;
-import com.rtbhouse.kafka.workers.api.record.RecordStatusObserver;
+import com.rtbhouse.kafka.workers.api.observer.StatusObserver;
 import com.rtbhouse.kafka.workers.api.record.WorkerRecord;
 import com.rtbhouse.kafka.workers.api.task.WorkerTask;
 import com.rtbhouse.kafka.workers.api.task.WorkerTaskFactory;
@@ -31,7 +31,7 @@ import com.rtbhouse.kafka.workers.integration.utils.TestProperties;
 import com.rtbhouse.kafka.workers.integration.utils.ZookeeperUtils;
 
 @RequiresKafkaServer
-public class RecordStatusObserverTest {
+public class StatusObserverTest {
 
     private static final String TOPIC = "topic";
 
@@ -77,7 +77,7 @@ public class RecordStatusObserverTest {
                 new ShutdownCallback() {
                     @Override
                     public void onShutdown(WorkersException exception) {
-                        exceptionToCheck.set(exception.getCause());
+                        exceptionToCheck.set(exception);
                         latch.countDown();
                     }
                 });
@@ -124,7 +124,7 @@ public class RecordStatusObserverTest {
     private static class TestTask implements WorkerTask<String, String> {
 
         @Override
-        public void process(WorkerRecord<String, String> record, RecordStatusObserver observer) {
+        public void process(WorkerRecord<String, String> record, StatusObserver observer) {
             observer.onFailure(new RuntimeException("Test"));
         }
 

@@ -4,25 +4,20 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
-import com.rtbhouse.kafka.workers.impl.record.RecordStatusObserverImpl;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.rtbhouse.kafka.workers.api.WorkersConfig;
 import com.rtbhouse.kafka.workers.api.WorkersException;
-import com.rtbhouse.kafka.workers.api.record.RecordStatusObserver;
 import com.rtbhouse.kafka.workers.api.record.WorkerRecord;
 import com.rtbhouse.kafka.workers.impl.AbstractWorkersThread;
 import com.rtbhouse.kafka.workers.impl.KafkaWorkersImpl;
 import com.rtbhouse.kafka.workers.impl.metrics.WorkersMetrics;
-import com.rtbhouse.kafka.workers.impl.offsets.OffsetsState;
+import com.rtbhouse.kafka.workers.impl.observer.StatusObserverImpl;
 import com.rtbhouse.kafka.workers.impl.queues.QueuesManager;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class WorkerThread<K, V> extends AbstractWorkersThread {
 
     public static final Logger logger = LoggerFactory.getLogger(WorkerThread.class);
-
-    private final int workerId;
 
     private final long workerSleepMs;
     private final long punctuatorIntervalMs;
@@ -30,7 +25,6 @@ public class WorkerThread<K, V> extends AbstractWorkersThread {
     private final TaskManager<K, V> taskManager;
     private final QueuesManager<K, V> queueManager;
     private final List<WorkerTaskImpl<K, V>> tasks = new CopyOnWriteArrayList<>();
-    private final OffsetsState offsetsState;
 
     private volatile boolean waiting = false;
     private volatile long punctuateTime = System.currentTimeMillis();
@@ -41,18 +35,14 @@ public class WorkerThread<K, V> extends AbstractWorkersThread {
             WorkersMetrics metrics,
             KafkaWorkersImpl<K, V> workers,
             TaskManager<K, V> taskManager,
-            QueuesManager<K, V> queueManager,
-            OffsetsState offsetsState) {
+            QueuesManager<K, V> queueManager) {
         super("worker-thread-" + workerId, config, metrics, workers);
-
-        this.workerId = workerId;
 
         this.workerSleepMs = config.getLong(WorkersConfig.WORKER_SLEEP_MS);
         this.punctuatorIntervalMs = config.getLong(WorkersConfig.PUNCTUATOR_INTERVAL_MS);
 
         this.taskManager = taskManager;
         this.queueManager = queueManager;
-        this.offsetsState = offsetsState;
     }
 
     @Override
@@ -79,9 +69,7 @@ public class WorkerThread<K, V> extends AbstractWorkersThread {
                 if (pollRecord == null || !pollRecord.equals(peekRecord)) {
                     throw new WorkersException("peekRecord and pollRecord are different");
                 }
-
-                RecordStatusObserver observer = new RecordStatusObserverImpl<K, V>(pollRecord, metrics, config, offsetsState, this);
-                task.process(pollRecord, observer);
+                task.process(pollRecord, new StatusObserverImpl<K, V>(task, peekRecord.offset()));
             }
         }
 
@@ -116,10 +104,6 @@ public class WorkerThread<K, V> extends AbstractWorkersThread {
         super.shutdown(exception);
         // in case of shutdown we do not want to block thread any more
         notifyAll();
-    }
-
-    public int getWorkerId() {
-        return workerId;
     }
 
     public void clearTasks() {

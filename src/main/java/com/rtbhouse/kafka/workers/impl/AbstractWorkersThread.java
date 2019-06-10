@@ -1,11 +1,10 @@
 package com.rtbhouse.kafka.workers.impl;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.rtbhouse.kafka.workers.api.WorkersConfig;
 import com.rtbhouse.kafka.workers.api.WorkersException;
 import com.rtbhouse.kafka.workers.impl.metrics.WorkersMetrics;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public abstract class AbstractWorkersThread extends Thread {
 
@@ -35,7 +34,7 @@ public abstract class AbstractWorkersThread extends Thread {
 
     public abstract void close();
 
-    // used to shutdown current thread internally because of failure (see RecordStatusObserver)
+    // used to shutdown current thread internally because of failure (see StatusObserver)
     public void shutdown(WorkersException exception) {
         if (exception != null) {
             this.exception = exception;

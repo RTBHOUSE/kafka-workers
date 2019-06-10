@@ -1,8 +1,9 @@
 package com.rtbhouse.kafka.workers.api.task;
 
 import com.rtbhouse.kafka.workers.api.WorkersConfig;
+import com.rtbhouse.kafka.workers.api.observer.BatchStatusObserver;
 import com.rtbhouse.kafka.workers.api.partitioner.WorkerSubpartition;
-import com.rtbhouse.kafka.workers.api.record.RecordStatusObserver;
+import com.rtbhouse.kafka.workers.api.observer.StatusObserver;
 import com.rtbhouse.kafka.workers.api.record.WorkerRecord;
 
 /**
@@ -24,7 +25,7 @@ public interface WorkerTask<K, V> {
 
     /**
      * Checks if given {@link WorkerRecord} could be polled from internal {@link WorkerSubpartition}'s queue peek and
-     * passed to {@link #process(WorkerRecord, RecordStatusObserver)} method.
+     * passed to {@link #process(WorkerRecord, StatusObserver)} method.
      *
      * @param record
      *            {@link WorkerRecord} to check
@@ -37,17 +38,17 @@ public interface WorkerTask<K, V> {
 
     /**
      * Processes just polled {@link WorkerRecord} from given {@link WorkerSubpartition}'s internal queue. It could be
-     * done synchronously or asynchronously. In both cases, one of the {@link RecordStatusObserver#onSuccess()} or
-     * {@link RecordStatusObserver#onFailure(Exception)} methods has to be called. Not calling any of these methods for
+     * done synchronously or asynchronously. In both cases, one of the {@link StatusObserver#onSuccess()} or
+     * {@link StatusObserver#onFailure(Exception)} methods has to be called. Not calling any of these methods for
      * configurable amount of time (by {@link WorkersConfig#CONSUMER_PROCESSING_TIMEOUT_MS}) will be considered as a
      * failure.
      *
      * @param record
      *            {@link WorkerRecord} to process
      * @param observer
-     *            {@link RecordStatusObserver} associated with given {@link WorkerRecord}
+     *            {@link StatusObserver} associated with given {@link WorkerRecord}
      */
-    void process(WorkerRecord<K, V> record, RecordStatusObserver observer);
+    void process(WorkerRecord<K, V> record, StatusObserver observer);
 
     /**
      * Allows to do maintenance tasks every configurable amount of time independently if there are records to process or not.

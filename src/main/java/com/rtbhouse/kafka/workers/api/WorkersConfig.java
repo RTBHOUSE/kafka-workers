@@ -8,7 +8,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
-import com.rtbhouse.kafka.workers.api.record.RecordProcessingGuarantee;
+import com.rtbhouse.kafka.workers.api.task.RecordProcessingGuarantee;
 import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.KafkaConsumer;

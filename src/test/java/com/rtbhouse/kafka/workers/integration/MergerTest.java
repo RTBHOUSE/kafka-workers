@@ -31,7 +31,7 @@ import org.slf4j.LoggerFactory;
 import com.rtbhouse.kafka.workers.api.KafkaWorkers;
 import com.rtbhouse.kafka.workers.api.WorkersConfig;
 import com.rtbhouse.kafka.workers.api.partitioner.WorkerSubpartition;
-import com.rtbhouse.kafka.workers.api.record.RecordStatusObserver;
+import com.rtbhouse.kafka.workers.api.observer.StatusObserver;
 import com.rtbhouse.kafka.workers.api.record.WorkerRecord;
 import com.rtbhouse.kafka.workers.api.task.WorkerTask;
 import com.rtbhouse.kafka.workers.api.task.WorkerTaskFactory;
@@ -159,7 +159,7 @@ public class MergerTest {
         }
 
         @Override
-        public void process(WorkerRecord<String, String> record, RecordStatusObserver observer) {
+        public void process(WorkerRecord<String, String> record, StatusObserver observer) {
             logger.info("process(partition: {}, timestamp: {})", record.partition(), record.timestamp());
 
             Future<RecordMetadata> future = taskProducer.send(new ProducerRecord<>(

@@ -61,10 +61,11 @@ public class TaskManagerTest {
         SubpartitionSupplier<byte[], byte[]> subpartitionSupplier = new SubpartitionSupplier<>(new RoundRobinPartitioner<>(10));
         List<WorkerThread<byte[], byte[]>> threads = new ArrayList<>();
 
-        TaskManager<byte[], byte[]> taskManager = new TaskManager<>(config, metrics, taskFactory, subpartitionSupplier, threads);
+        TaskManager<byte[], byte[]> taskManager = new TaskManager<>(
+                config, metrics, workers, taskFactory, subpartitionSupplier, threads, offsetsState);
 
         for (int i = 0; i < WORKER_THREADS_NUM; i++) {
-            threads.add(new WorkerThread<>(i, config, metrics, workers, taskManager, queueManager, offsetsState));
+            threads.add(new WorkerThread<>(i, config, metrics, workers, taskManager, queueManager));
         }
         ExecutorService executorService = Executors.newFixedThreadPool(WORKER_THREADS_NUM);
         for (WorkerThread<byte[], byte[]> workerThread : threads) {

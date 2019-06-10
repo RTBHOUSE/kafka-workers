@@ -77,13 +77,13 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
         setStatus(Status.STARTING);
         logger.info("kafka workers starting");
 
-        taskManager = new TaskManager<>(config, metrics, taskFactory, subpartitionSupplier, workerThreads);
+        taskManager = new TaskManager<>(config, metrics, this, taskFactory, subpartitionSupplier, workerThreads, offsetsState);
         queueManager = new QueuesManager<>(config, metrics, subpartitionSupplier, taskManager);
 
         final int workerThreadsNum = config.getInt(WorkersConfig.WORKER_THREADS_NUM);
         consumerThread = new ConsumerThread<>(config, metrics, this, queueManager, subpartitionSupplier, offsetsState);
         for (int i = 0; i < workerThreadsNum; i++) {
-            workerThreads.add(new WorkerThread<>(i, config, metrics, this,  taskManager, queueManager, offsetsState));
+            workerThreads.add(new WorkerThread<>(i, config, metrics, this,  taskManager, queueManager));
         }
         punctuatorThread = new PunctuatorThread<>(config, metrics, this, workerThreads);
 
