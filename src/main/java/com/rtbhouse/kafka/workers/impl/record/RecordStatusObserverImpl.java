@@ -17,16 +17,15 @@ public class RecordStatusObserverImpl<K, V> implements RecordStatusObserver {
 
     private static final Logger logger = LoggerFactory.getLogger(RecordStatusObserverImpl.class);
 
-    protected WorkerSubpartition subpartition;
-    protected long offset;
+    protected final WorkerSubpartition subpartition;
+    protected final long offset;
     protected final Context<K, V> context;
 
     public RecordStatusObserverImpl(
             WorkerRecord<K, V> record,
-            WorkerSubpartition subpartition,
             Context<K, V> context
     ) {
-        this.subpartition = subpartition;
+        this.subpartition = WorkerSubpartition.getInstance(record.topicPartition(), record.subpartition());
         this.offset = record.offset();
         this.context = context;
     }

@@ -1,5 +1,7 @@
 package com.rtbhouse.kafka.workers.api.partitioner;
 
+import static com.rtbhouse.kafka.workers.impl.pool.TopicPartitionPool.getTopicPartition;
+
 import java.util.HashMap;
 import java.util.Map;
 
@@ -30,7 +32,7 @@ public class RoundRobinPartitioner<K, V> implements WorkerPartitioner<K, V> {
     }
 
     private int nextValue(String topic, int partition) {
-        TopicPartition topicPartition = new TopicPartition(topic, partition);
+        TopicPartition topicPartition = getTopicPartition(topic, partition);
         Integer counter = partitionCounterMap.get(topicPartition);
         if (counter == null) {
             counter = 0;

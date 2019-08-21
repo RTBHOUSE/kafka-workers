@@ -37,7 +37,7 @@ public class SubpartitionSupplierTest {
         WorkerSubpartition subpartition = subpartitionSupplier.subpartition(new ConsumerRecord<>("topic", 1, 0L, null, null));
 
         // then
-        assertThat(subpartition).isEqualTo(new WorkerSubpartition("topic", 1, 2));
+        assertThat(subpartition).isEqualTo(WorkerSubpartition.getInstance("topic", 1, 2));
     }
 
     @Test
@@ -85,11 +85,11 @@ public class SubpartitionSupplierTest {
 
         // then
         assertThat(subpartitions.size()).isEqualTo(5);
-        assertThat(subpartitions.get(0)).isEqualTo(new WorkerSubpartition("topic", 2, 0));
-        assertThat(subpartitions.get(1)).isEqualTo(new WorkerSubpartition("topic", 2, 1));
-        assertThat(subpartitions.get(2)).isEqualTo(new WorkerSubpartition("topic", 3, 0));
-        assertThat(subpartitions.get(3)).isEqualTo(new WorkerSubpartition("topic", 3, 1));
-        assertThat(subpartitions.get(4)).isEqualTo(new WorkerSubpartition("topic", 3, 2));
+        assertThat(subpartitions.get(0)).isEqualTo(WorkerSubpartition.getInstance("topic", 2, 0));
+        assertThat(subpartitions.get(1)).isEqualTo(WorkerSubpartition.getInstance("topic", 2, 1));
+        assertThat(subpartitions.get(2)).isEqualTo(WorkerSubpartition.getInstance("topic", 3, 0));
+        assertThat(subpartitions.get(3)).isEqualTo(WorkerSubpartition.getInstance("topic", 3, 1));
+        assertThat(subpartitions.get(4)).isEqualTo(WorkerSubpartition.getInstance("topic", 3, 2));
     }
 
 }

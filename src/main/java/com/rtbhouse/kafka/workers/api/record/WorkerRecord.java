@@ -1,5 +1,7 @@
 package com.rtbhouse.kafka.workers.api.record;
 
+import static com.rtbhouse.kafka.workers.impl.pool.TopicPartitionPool.getTopicPartition;
+
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.header.Headers;
@@ -15,7 +17,7 @@ public class WorkerRecord<K, V> {
     }
 
     public TopicPartition topicPartition() {
-        return new TopicPartition(record.topic(), record.partition());
+        return getTopicPartition(record.topic(), record.partition());
     }
 
     public String topic() {

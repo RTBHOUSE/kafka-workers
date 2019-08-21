@@ -1,9 +1,7 @@
 package com.rtbhouse.kafka.workers.impl.task;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import org.slf4j.Logger;
@@ -11,7 +9,6 @@ import org.slf4j.LoggerFactory;
 
 import com.rtbhouse.kafka.workers.api.WorkersConfig;
 import com.rtbhouse.kafka.workers.api.WorkersException;
-import com.rtbhouse.kafka.workers.api.partitioner.WorkerSubpartition;
 import com.rtbhouse.kafka.workers.api.record.RecordStatusObserver;
 import com.rtbhouse.kafka.workers.api.record.WorkerRecord;
 import com.rtbhouse.kafka.workers.impl.AbstractWorkersThread;
@@ -33,8 +30,7 @@ public class WorkerThread<K, V> extends AbstractWorkersThread {
     private final TaskManager<K, V> taskManager;
     private final QueuesManager<K, V> queueManager;
     private final List<WorkerTaskImpl<K, V>> tasks = new CopyOnWriteArrayList<>();
-    private final Map<WorkerSubpartition, WorkerSubpartition> subpartitions = new HashMap<>();
-    private final RecordStatusObserverImpl.Context<K, V> recordStatusObserverContext;
+    private final RecordStatusObserverImpl.Context<K, V> recordStatusObserverThreadContext;
 
     private volatile boolean waiting = false;
     private volatile long punctuateTime = System.currentTimeMillis();
@@ -56,7 +52,7 @@ public class WorkerThread<K, V> extends AbstractWorkersThread {
 
         this.taskManager = taskManager;
         this.queueManager = queueManager;
-        this.recordStatusObserverContext = new RecordStatusObserverImpl.Context<>(metrics, config, offsetsState, this);
+        this.recordStatusObserverThreadContext = new RecordStatusObserverImpl.Context<>(metrics, config, offsetsState, this);
     }
 
     @Override
@@ -84,9 +80,7 @@ public class WorkerThread<K, V> extends AbstractWorkersThread {
                     throw new WorkersException("peekRecord and pollRecord are different");
                 }
 
-                WorkerSubpartition workerSubpartition = getWorkerSubpartition(pollRecord);
-                RecordStatusObserver observer = new RecordStatusObserverImpl<>(pollRecord, workerSubpartition, recordStatusObserverContext);
-                task.process(pollRecord, observer);
+                task.process(pollRecord, createRecordStatusObserver(pollRecord));
             }
         }
 
@@ -108,10 +102,8 @@ public class WorkerThread<K, V> extends AbstractWorkersThread {
         }
     }
 
-    private WorkerSubpartition getWorkerSubpartition(WorkerRecord<K, V> record) {
-        WorkerSubpartition subpartition = new WorkerSubpartition(record.topic(), record.partition(), record.subpartition());
-        // Keep only one copy of the given subpartition in memory
-        return subpartitions.computeIfAbsent(subpartition, s -> s);
+    private RecordStatusObserver createRecordStatusObserver(WorkerRecord<K, V> pollRecord) {
+        return new RecordStatusObserverImpl<>(pollRecord, recordStatusObserverThreadContext);
     }
 
     @Override
