@@ -1,5 +1,7 @@
 package com.rtbhouse.kafka.workers.impl.partitioner;
 
+import static com.rtbhouse.kafka.workers.impl.pool.TopicPartitionPool.getTopicPartition;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -22,12 +24,12 @@ public class SubpartitionSupplier<K, V> {
 
     public WorkerSubpartition subpartition(ConsumerRecord<K, V> record) {
         // returns WorkerSubpartition for given ConsumerRecord using WorkerPartitioner to determine sub-partition id
-        TopicPartition topicPartition = new TopicPartition(record.topic(), record.partition());
+        TopicPartition topicPartition = getTopicPartition(record.topic(), record.partition());
         int subpartition = partitioner.subpartition(record);
         if (subpartition < 0 || subpartition >= partitioner.count(topicPartition)) {
             throw new BadSubpartitionException("Invalid subpartition: " + subpartition);
         }
-        return new WorkerSubpartition(topicPartition, subpartition);
+        return WorkerSubpartition.getInstance(topicPartition, subpartition);
     }
 
     public List<WorkerSubpartition> subpartitions(TopicPartition topicPartition) {
@@ -37,9 +39,9 @@ public class SubpartitionSupplier<K, V> {
     public List<WorkerSubpartition> subpartitions(Collection<TopicPartition> topicPartitions) {
         // generates all WorkerSubpartition(s) associated with given TopicPartition(s)
         List<WorkerSubpartition> workerSubpartitions = new ArrayList<>();
-        for (TopicPartition partition : topicPartitions) {
-            for (int subpartition = 0; subpartition < partitioner.count(partition); subpartition++) {
-                workerSubpartitions.add(new WorkerSubpartition(partition, subpartition));
+        for (TopicPartition topicPartition : topicPartitions) {
+            for (int subpartition = 0; subpartition < partitioner.count(topicPartition); subpartition++) {
+                workerSubpartitions.add(WorkerSubpartition.getInstance(topicPartition, subpartition));
             }
         }
         return workerSubpartitions;

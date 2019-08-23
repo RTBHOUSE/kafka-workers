@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
-import com.rtbhouse.kafka.workers.impl.record.RecordStatusObserverImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -17,6 +16,7 @@ import com.rtbhouse.kafka.workers.impl.KafkaWorkersImpl;
 import com.rtbhouse.kafka.workers.impl.metrics.WorkersMetrics;
 import com.rtbhouse.kafka.workers.impl.offsets.OffsetsState;
 import com.rtbhouse.kafka.workers.impl.queues.QueuesManager;
+import com.rtbhouse.kafka.workers.impl.record.RecordStatusObserverImpl;
 
 public class WorkerThread<K, V> extends AbstractWorkersThread {
 
@@ -30,7 +30,7 @@ public class WorkerThread<K, V> extends AbstractWorkersThread {
     private final TaskManager<K, V> taskManager;
     private final QueuesManager<K, V> queueManager;
     private final List<WorkerTaskImpl<K, V>> tasks = new CopyOnWriteArrayList<>();
-    private final OffsetsState offsetsState;
+    private final RecordStatusObserverImpl.Context<K, V> recordStatusObserverThreadContext;
 
     private volatile boolean waiting = false;
     private volatile long punctuateTime = System.currentTimeMillis();
@@ -52,7 +52,7 @@ public class WorkerThread<K, V> extends AbstractWorkersThread {
 
         this.taskManager = taskManager;
         this.queueManager = queueManager;
-        this.offsetsState = offsetsState;
+        this.recordStatusObserverThreadContext = new RecordStatusObserverImpl.Context<>(metrics, config, offsetsState, this);
     }
 
     @Override
@@ -80,8 +80,7 @@ public class WorkerThread<K, V> extends AbstractWorkersThread {
                     throw new WorkersException("peekRecord and pollRecord are different");
                 }
 
-                RecordStatusObserver observer = new RecordStatusObserverImpl<K, V>(pollRecord, metrics, config, offsetsState, this);
-                task.process(pollRecord, observer);
+                task.process(pollRecord, createRecordStatusObserver(pollRecord));
             }
         }
 
@@ -101,6 +100,10 @@ public class WorkerThread<K, V> extends AbstractWorkersThread {
                 Thread.sleep(sleepMillis);
             }
         }
+    }
+
+    private RecordStatusObserver createRecordStatusObserver(WorkerRecord<K, V> pollRecord) {
+        return new RecordStatusObserverImpl<>(pollRecord, recordStatusObserverThreadContext);
     }
 
     @Override

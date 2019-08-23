@@ -1,10 +1,10 @@
 package com.rtbhouse.kafka.workers.api.record;
 
+import static com.rtbhouse.kafka.workers.impl.pool.TopicPartitionPool.getTopicPartition;
+
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.header.Headers;
-
-import com.rtbhouse.kafka.workers.api.partitioner.WorkerSubpartition;
 
 public class WorkerRecord<K, V> {
 
@@ -16,12 +16,8 @@ public class WorkerRecord<K, V> {
         this.subpartition = subpartition;
     }
 
-    public WorkerSubpartition workerSubpartition() {
-        return new WorkerSubpartition(record.topic(), record.partition(), subpartition);
-    }
-
     public TopicPartition topicPartition() {
-        return new TopicPartition(record.topic(), record.partition());
+        return getTopicPartition(record.topic(), record.partition());
     }
 
     public String topic() {

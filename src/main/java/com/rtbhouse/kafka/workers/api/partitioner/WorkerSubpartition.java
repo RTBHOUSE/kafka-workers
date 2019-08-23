@@ -1,21 +1,33 @@
 package com.rtbhouse.kafka.workers.api.partitioner;
 
+import static java.util.function.Function.identity;
+
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
 import org.apache.kafka.common.TopicPartition;
 
+import com.rtbhouse.kafka.workers.impl.pool.TopicPartitionPool;
+
 public class WorkerSubpartition {
+
+    private static final Map<WorkerSubpartition, WorkerSubpartition> INSTANCES = new ConcurrentHashMap<>();
 
     private final TopicPartition topicPartition;
     private final int subpartition;
 
     private int hash = 0;
 
-    public WorkerSubpartition(TopicPartition partition, int subpartition) {
-        this.topicPartition = partition;
-        this.subpartition = subpartition;
+    public static WorkerSubpartition getInstance(TopicPartition topicPartition, int subpartition) {
+        return INSTANCES.computeIfAbsent(new WorkerSubpartition(topicPartition, subpartition), identity());
     }
 
-    public WorkerSubpartition(String topic, int partition, int subpartition) {
-        this.topicPartition = new TopicPartition(topic, partition);
+    public static WorkerSubpartition getInstance(String topic, int partition, int subpartition) {
+        return getInstance(TopicPartitionPool.getTopicPartition(topic, partition), subpartition);
+    }
+
+    private WorkerSubpartition(TopicPartition partition, int subpartition) {
+        this.topicPartition = partition;
         this.subpartition = subpartition;
     }
 
