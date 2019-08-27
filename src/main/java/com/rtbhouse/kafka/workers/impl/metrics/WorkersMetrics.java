@@ -1,11 +1,13 @@
 package com.rtbhouse.kafka.workers.impl.metrics;
 
+import static com.rtbhouse.kafka.workers.impl.offsets.OffsetsState.Status.CONSUMED;
+import static com.rtbhouse.kafka.workers.impl.offsets.OffsetsState.Status.PROCESSED;
+
 import java.util.Collection;
 import java.util.List;
 
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.metrics.JmxReporter;
-import org.apache.kafka.common.metrics.Measurable;
 import org.apache.kafka.common.metrics.MetricConfig;
 import org.apache.kafka.common.metrics.Metrics;
 import org.apache.kafka.common.metrics.MetricsReporter;
@@ -13,8 +15,10 @@ import org.apache.kafka.common.metrics.Sensor;
 import org.apache.kafka.common.metrics.stats.Value;
 import org.apache.kafka.common.utils.Time;
 
+import com.google.common.collect.ImmutableList;
 import com.rtbhouse.kafka.workers.api.WorkersConfig;
 import com.rtbhouse.kafka.workers.api.partitioner.WorkerSubpartition;
+import com.rtbhouse.kafka.workers.impl.offsets.OffsetsState;
 import com.rtbhouse.kafka.workers.impl.task.WorkerThread;
 
 public class WorkersMetrics {
@@ -35,6 +39,20 @@ public class WorkersMetrics {
     public static final String WORKER_THREAD_METRIC_GROUP = "worker-threads";
     public static final String WORKER_THREAD_COUNT_METRIC_NAME = "count";
     public static final String WORKER_THREAD_TASK_COUNT_METRIC_NAME = "task-count";
+
+    public static final String OFFSETS_CONSUMED_COUNT = "offsets.consumed.count";
+    public static final String OFFSETS_PROCESSED_COUNT = "offsets.processed.count";
+    public static final String OFFSET_RANGES_CONSUMED_COUNT = "offset-ranges.consumed.count";
+    public static final String OFFSET_RANGES_PROCESSED_COUNT = "offset-ranges.processed.count";
+    public static final String PROCESSED_RANGES_TO_ALL_OFFSETS_RATIO = "processed-ranges-to-all-offsets.ratio";
+
+    private static final List<String> ALL_OFFSETS_STATE_METRIC_NAMES = ImmutableList.of(
+            OFFSETS_CONSUMED_COUNT,
+            OFFSETS_PROCESSED_COUNT,
+            OFFSET_RANGES_CONSUMED_COUNT,
+            OFFSET_RANGES_PROCESSED_COUNT,
+            PROCESSED_RANGES_TO_ALL_OFFSETS_RATIO
+    );
 
     private final Metrics metrics;
 
@@ -133,4 +151,30 @@ public class WorkersMetrics {
         metrics.removeMetric(metrics.metricName(WORKER_THREAD_TASK_COUNT_METRIC_NAME, group));
     }
 
+    public void addOffsetsStateMetrics(OffsetsState offsetsState, TopicPartition partition) {
+        String group = offsetsStatePartitionGroup(partition);
+        OffsetsState.MetricInfo metricInfo = offsetsState.getMetricInfo(partition);
+
+        metrics.addMetric(metrics.metricName(OFFSETS_CONSUMED_COUNT, group),
+                (config, now) -> metricInfo.getOffsetStatusCount(CONSUMED));
+        metrics.addMetric(metrics.metricName(OFFSETS_PROCESSED_COUNT, group),
+                (config, now) -> metricInfo.getOffsetStatusCount(PROCESSED));
+
+        metrics.addMetric(metrics.metricName(OFFSET_RANGES_CONSUMED_COUNT, group),
+                (config, now) -> metricInfo.getOffsetRangesStatusCount(CONSUMED));
+        metrics.addMetric(metrics.metricName(OFFSET_RANGES_PROCESSED_COUNT, group),
+                (config, now) -> metricInfo.getOffsetRangesStatusCount(PROCESSED));
+
+        metrics.addMetric(metrics.metricName(PROCESSED_RANGES_TO_ALL_OFFSETS_RATIO, group),
+                (config, now) -> ((double)metricInfo.getOffsetRangesStatusCount(PROCESSED)) / ((double)metricInfo.getOffsetsCount()));
+    }
+
+    private String offsetsStatePartitionGroup(TopicPartition partition) {
+        return "offsets-state." + partition;
+    }
+
+    public void removeOffsetsStateMetrics(TopicPartition partition) {
+        String group = offsetsStatePartitionGroup(partition);
+        ALL_OFFSETS_STATE_METRIC_NAMES.forEach(name -> metrics.removeMetric(metrics.metricName(name, group)));
+    }
 }

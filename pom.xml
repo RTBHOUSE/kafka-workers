@@ -47,10 +47,16 @@
     </scm>
 
     <distributionManagement>
+<!--        <snapshotRepository>-->
+<!--            <id>ossrh</id>-->
+<!--            <url>https://oss.sonatype.org/content/repositories/snapshots</url>-->
+<!--        </snapshotRepository>-->
         <snapshotRepository>
-            <id>ossrh</id>
-            <url>https://oss.sonatype.org/content/repositories/snapshots</url>
+            <id>Adpilot-snapshots</id>
+            <name>Internal Snapshots</name>
+            <url>http://nexus.adpilot-rtb.net:8081/content/repositories/snapshots/</url>
         </snapshotRepository>
+
         <repository>
             <id>ossrh</id>
             <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
