@@ -151,34 +151,29 @@ public class WorkersMetrics {
         metrics.removeMetric(metrics.metricName(WORKER_THREAD_TASK_COUNT_METRIC_NAME, group));
     }
 
-    public void addOffsetsStateMetrics(OffsetsState offsetsState, TopicPartition partition) {
-        String group = offsetsStatePartitionGroup(partition);
-
-        //TODO: these are heavy metrics: do not commit them to master
+    public void addOffsetsStateCurrentMetrics(OffsetsState offsetsState, TopicPartition partition) {
+        String group = offsetsStateCurrInfosPartitionGroup(partition);
 
         metrics.addMetric(metrics.metricName(OFFSETS_CONSUMED_COUNT, group),
-                (config, now) -> offsetsState.getMetricInfo(partition).getOffsetStatusCount(CONSUMED));
+                (config, now) -> offsetsState.getCurrMetricInfo(partition).getOffsetStatusCount(CONSUMED));
         metrics.addMetric(metrics.metricName(OFFSETS_PROCESSED_COUNT, group),
-                (config, now) -> offsetsState.getMetricInfo(partition).getOffsetStatusCount(PROCESSED));
+                (config, now) -> offsetsState.getCurrMetricInfo(partition).getOffsetStatusCount(PROCESSED));
 
         metrics.addMetric(metrics.metricName(OFFSET_RANGES_CONSUMED_COUNT, group),
-                (config, now) -> offsetsState.getMetricInfo(partition).getOffsetRangesStatusCount(CONSUMED));
+                (config, now) -> offsetsState.getCurrMetricInfo(partition).getOffsetRangesStatusCount(CONSUMED));
         metrics.addMetric(metrics.metricName(OFFSET_RANGES_PROCESSED_COUNT, group),
-                (config, now) -> offsetsState.getMetricInfo(partition).getOffsetRangesStatusCount(PROCESSED));
+                (config, now) -> offsetsState.getCurrMetricInfo(partition).getOffsetRangesStatusCount(PROCESSED));
 
         metrics.addMetric(metrics.metricName(PROCESSED_RANGES_TO_PROCESSED_OFFSETS_RATIO, group),
-                (config, now) -> {
-                    var metricInfo = offsetsState.getMetricInfo(partition);
-                    return ((double) metricInfo.getOffsetRangesStatusCount(PROCESSED)) / ((double)metricInfo.getOffsetsCount());
-                });
+                (config, now) -> offsetsState.getCurrMetricInfo(partition).getProcessedRangesToProcessedOffsetsRatio());
     }
 
-    private String offsetsStatePartitionGroup(TopicPartition partition) {
-        return "offsets-state." + partition;
+    private String offsetsStateCurrInfosPartitionGroup(TopicPartition partition) {
+        return "offsets-state.curr-infos." + partition;
     }
 
-    public void removeOffsetsStateMetrics(TopicPartition partition) {
-        String group = offsetsStatePartitionGroup(partition);
+    public void removeOffsetsStateCurrentMetrics(TopicPartition partition) {
+        String group = offsetsStateCurrInfosPartitionGroup(partition);
         ALL_OFFSETS_STATE_METRIC_NAMES.forEach(name -> metrics.removeMetric(metrics.metricName(name, group)));
     }
 
