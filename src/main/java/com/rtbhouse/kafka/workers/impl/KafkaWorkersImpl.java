@@ -70,7 +70,7 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
         this.taskFactory = taskFactory;
         this.subpartitionSupplier = new SubpartitionSupplier<>(partitioner);
         this.callback = callback;
-        this.offsetsState = new OffsetsState(metrics);
+        this.offsetsState = new OffsetsState(config, metrics);
     }
 
     public void start() {

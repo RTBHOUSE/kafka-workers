@@ -7,6 +7,8 @@ import static com.rtbhouse.kafka.workers.impl.offsets.OffsetsState.Status.CONSUM
 import static com.rtbhouse.kafka.workers.impl.offsets.OffsetsState.Status.EMPTY;
 import static com.rtbhouse.kafka.workers.impl.offsets.OffsetsState.Status.PROCESSED;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -14,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
@@ -28,6 +31,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Range;
+import com.rtbhouse.kafka.workers.api.WorkersConfig;
 import com.rtbhouse.kafka.workers.impl.Partitioned;
 import com.rtbhouse.kafka.workers.impl.errors.BadOffsetException;
 import com.rtbhouse.kafka.workers.impl.errors.ProcessingTimeoutException;
@@ -57,15 +61,28 @@ public class OffsetsState implements Partitioned {
                     '}';
         }
     }
+
+    private Instant metricInfosComputedAt = Instant.now();
+    private final Duration metricInfosMaxDelay;
+
     private final WorkersMetrics metrics;
 
     private final Map<TopicPartition, SortedMap<Long, Info>> offsets;
 
+//    private final Map<TopicPartition, OffsetRanges> processedOffsetRanges;
+
     private final Map<TopicPartition, TopicPartitionMetricInfo> maxMetricInfos = new ConcurrentHashMap<>();
 
-    public OffsetsState(WorkersMetrics metrics) {
+    public OffsetsState(WorkersConfig config, WorkersMetrics metrics) {
         this.metrics = metrics;
         this.offsets = new ConcurrentHashMap<>();
+
+        long metricInfosMaxDelayMillis = Optional
+                .ofNullable(config.originals().get("offsets-state.metric-infos.delay.ms"))
+                .map(value -> Long.valueOf((String) value))
+                .orElse(1_000L);
+        this.metricInfosMaxDelay = Duration.ofMillis(metricInfosMaxDelayMillis);
+        logger.info("metricInfosMaxDelay = {} ms", metricInfosMaxDelay.toMillis());
     }
 
     public TopicPartitionMetricInfo getMetricInfo(TopicPartition partition) {
@@ -108,7 +125,7 @@ public class OffsetsState implements Partitioned {
             return v;
         });
 
-        computeMetricInfo(partition);
+        computeMetricInfos();
     }
 
     public void updateProcessed(TopicPartition partition, long offset) {
@@ -125,7 +142,24 @@ public class OffsetsState implements Partitioned {
             return v;
         });
 
-        computeMetricInfo(partition);
+        computeMetricInfos();
+    }
+
+    private void computeMetricInfos() {
+        if (shouldComputeMetricInfos()) {
+            Instant start = Instant.now();
+            offsets.keySet().forEach(this::computeMetricInfo);
+            logger.info("Metric infos computed in {} ms", Duration.between(start, Instant.now()).toMillis());
+        }
+    }
+
+    private synchronized boolean shouldComputeMetricInfos() {
+        if (!Duration.between(metricInfosComputedAt, Instant.now()).minus(metricInfosMaxDelay).isNegative()) {
+            metricInfosComputedAt = Instant.now();
+            return true;
+        } else {
+            return false;
+        }
     }
 
     private void computeMetricInfo(TopicPartition partition) {
@@ -133,17 +167,27 @@ public class OffsetsState implements Partitioned {
         maxMetricInfos.compute(partition, (k, prevInfo) -> infoWithMoreRanges(prevInfo, currInfo));
     }
 
-    private TopicPartitionMetricInfo infoWithMoreRanges(TopicPartitionMetricInfo info1, TopicPartitionMetricInfo info2) {
-        if (info1 == null) {
-            return info2;
+    private TopicPartitionMetricInfo infoWithMoreRanges(TopicPartitionMetricInfo prevInfo, TopicPartitionMetricInfo currInfo) {
+        checkNotNull(currInfo);
+
+        if (prevInfo == null) {
+            return currInfo;
         }
-        if (info2 == null) {
-            return info1;
+
+        long currProcessedRangesCount = currInfo.offsetRangesStatusCounts.getOrDefault(PROCESSED, 0L);
+        long prevProcessedRangesCount = prevInfo.offsetRangesStatusCounts.getOrDefault(PROCESSED, 0L);
+
+        if (currProcessedRangesCount > prevProcessedRangesCount) {
+            return currInfo;
+        } else if (currProcessedRangesCount == prevProcessedRangesCount) {
+            if (currInfo.offsetStatusCounts.size() > prevInfo.offsetStatusCounts.size()) {
+                return currInfo;
+            } else {
+                return prevInfo;
+            }
+        } else {
+            return prevInfo;
         }
-
-
-
-        return (info1.offsetRangesStatusCounts.getOrDefault(PROCESSED, 0L) < info2.offsetRangesStatusCounts.getOrDefault(PROCESSED, 0L)) ? info1 : info2;
     }
 
     public Map<TopicPartition, OffsetAndMetadata> getOffsetsToCommit(Set<TopicPartition> assignedPartitions, Long minTimestamp) {
@@ -420,6 +464,10 @@ public class OffsetsState implements Partitioned {
                 return new OffsetRange(this);
             }
         }
+    }
+
+    private static class OffsetRanges {
+
     }
 
 }
