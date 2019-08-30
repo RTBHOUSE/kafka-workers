@@ -31,7 +31,7 @@ public class OffsetsStateTest {
 
         // given (consumed and processed: 0-5)
         Set<TopicPartition> partitions = Stream.of(new TopicPartition("topic", 0)).collect(Collectors.toSet());
-        OffsetsState offsetsState = new OffsetsState(config, mockMetrics);
+        DefaultOffsetsState offsetsState = new DefaultOffsetsState(config, mockMetrics);
         offsetsState.register(partitions);
         for (long l = 0L; l <= 5L; l++) {
             offsetsState.addConsumed(new TopicPartition("topic", 0), l, 10L);
@@ -56,7 +56,7 @@ public class OffsetsStateTest {
 
         // given (consumed: 0-6, processed: 0,1,2,4,5,6)
         Set<TopicPartition> partitions = Stream.of(new TopicPartition("topic", 0)).collect(Collectors.toSet());
-        OffsetsState offsetsState = new OffsetsState(config, mockMetrics);
+        DefaultOffsetsState offsetsState = new DefaultOffsetsState(config, mockMetrics);
         offsetsState.register(partitions);
         for (long l = 0L; l <= 6L; l++) {
             offsetsState.addConsumed(new TopicPartition("topic", 0), l, 10L);
@@ -83,7 +83,7 @@ public class OffsetsStateTest {
         Set<TopicPartition> partitions = Stream
                 .of(new TopicPartition("topic", 0), new TopicPartition("topic", 1))
                 .collect(Collectors.toSet());
-        OffsetsState offsetsState = new OffsetsState(config, mockMetrics);
+        DefaultOffsetsState offsetsState = new DefaultOffsetsState(config, mockMetrics);
         offsetsState.register(partitions);
         for (long l = 0L; l <= 2L; l++) {
             offsetsState.addConsumed(new TopicPartition("topic", 0), l, 10L);
@@ -112,7 +112,7 @@ public class OffsetsStateTest {
 
         // given (consumed: 0,1,2,3, processed: 1,2,3)
         Set<TopicPartition> partitions = Stream.of(new TopicPartition("topic", 0)).collect(Collectors.toSet());
-        OffsetsState offsetsState = new OffsetsState(config, mockMetrics);
+        DefaultOffsetsState offsetsState = new DefaultOffsetsState(config, mockMetrics);
         offsetsState.register(partitions);
         for (long l = 0L; l <= 3L; l++) {
             offsetsState.addConsumed(new TopicPartition("topic", 0), l, 10L);
@@ -133,7 +133,7 @@ public class OffsetsStateTest {
 
         // given (consumed: 0,1,2, processed: 0,1,2,3!)
         Set<TopicPartition> partitions = Stream.of(new TopicPartition("topic", 0)).collect(Collectors.toSet());
-        OffsetsState offsetsState = new OffsetsState(config, mockMetrics);
+        DefaultOffsetsState offsetsState = new DefaultOffsetsState(config, mockMetrics);
         offsetsState.register(partitions);
         for (long l = 0L; l <= 2L; l++) {
             offsetsState.addConsumed(new TopicPartition("topic", 0), l, 10L);
@@ -155,7 +155,7 @@ public class OffsetsStateTest {
 
         // given (consumed: 0,1,2, processed: 0,1,2,2!)
         Set<TopicPartition> partitions = Stream.of(new TopicPartition("topic", 0)).collect(Collectors.toSet());
-        OffsetsState offsetsState = new OffsetsState(config, mockMetrics);
+        DefaultOffsetsState offsetsState = new DefaultOffsetsState(config, mockMetrics);
         offsetsState.register(partitions);
         for (long l = 0L; l <= 2L; l++) {
             offsetsState.addConsumed(new TopicPartition("topic", 0), l, 10L);
@@ -177,7 +177,7 @@ public class OffsetsStateTest {
 
         // given (consumed: 0,1,2, processed: 0
         Set<TopicPartition> partitions = Stream.of(new TopicPartition("topic", 0)).collect(Collectors.toSet());
-        OffsetsState offsetsState = new OffsetsState(config, mockMetrics);
+        DefaultOffsetsState offsetsState = new DefaultOffsetsState(config, mockMetrics);
         offsetsState.register(partitions);
         offsetsState.addConsumed(new TopicPartition("topic", 0), 0L, 10L);
         offsetsState.addConsumed(new TopicPartition("topic", 0), 1L, 15L);

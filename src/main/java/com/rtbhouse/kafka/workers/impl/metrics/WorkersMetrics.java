@@ -1,7 +1,7 @@
 package com.rtbhouse.kafka.workers.impl.metrics;
 
-import static com.rtbhouse.kafka.workers.impl.offsets.OffsetsState.Status.CONSUMED;
-import static com.rtbhouse.kafka.workers.impl.offsets.OffsetsState.Status.PROCESSED;
+import static com.rtbhouse.kafka.workers.impl.offsets.DefaultOffsetsState.Status.CONSUMED;
+import static com.rtbhouse.kafka.workers.impl.offsets.DefaultOffsetsState.Status.PROCESSED;
 
 import java.util.Collection;
 import java.util.List;
@@ -18,7 +18,7 @@ import org.apache.kafka.common.utils.Time;
 import com.google.common.collect.ImmutableList;
 import com.rtbhouse.kafka.workers.api.WorkersConfig;
 import com.rtbhouse.kafka.workers.api.partitioner.WorkerSubpartition;
-import com.rtbhouse.kafka.workers.impl.offsets.OffsetsState;
+import com.rtbhouse.kafka.workers.impl.offsets.DefaultOffsetsState;
 import com.rtbhouse.kafka.workers.impl.task.WorkerThread;
 
 public class WorkersMetrics {
@@ -151,7 +151,7 @@ public class WorkersMetrics {
         metrics.removeMetric(metrics.metricName(WORKER_THREAD_TASK_COUNT_METRIC_NAME, group));
     }
 
-    public void addOffsetsStateCurrentMetrics(OffsetsState offsetsState, TopicPartition partition) {
+    public void addOffsetsStateCurrentMetrics(DefaultOffsetsState offsetsState, TopicPartition partition) {
         String group = offsetsStateCurrInfosPartitionGroup(partition);
 
         metrics.addMetric(metrics.metricName(OFFSETS_CONSUMED_COUNT, group),
@@ -177,7 +177,7 @@ public class WorkersMetrics {
         ALL_OFFSETS_STATE_METRIC_NAMES.forEach(name -> metrics.removeMetric(metrics.metricName(name, group)));
     }
 
-    public void addOffsetsStateMaxMetrics(OffsetsState offsetsState, TopicPartition partition) {
+    public void addOffsetsStateMaxMetrics(DefaultOffsetsState offsetsState, TopicPartition partition) {
         String group = offsetsStateMaxPartitionGroup(partition);
 
         metrics.addMetric(metrics.metricName(OFFSETS_CONSUMED_COUNT, group),

@@ -1,10 +1,15 @@
 package com.rtbhouse.kafka.workers.impl.consumer;
 
+import static com.google.common.base.Preconditions.checkState;
+import static java.util.Comparator.naturalOrder;
+
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
@@ -16,6 +21,8 @@ import org.apache.kafka.common.errors.WakeupException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.collect.Comparators;
+import com.google.common.collect.Streams;
 import com.rtbhouse.kafka.workers.api.WorkersConfig;
 import com.rtbhouse.kafka.workers.api.WorkersException;
 import com.rtbhouse.kafka.workers.api.partitioner.WorkerSubpartition;
@@ -24,6 +31,7 @@ import com.rtbhouse.kafka.workers.impl.AbstractWorkersThread;
 import com.rtbhouse.kafka.workers.impl.KafkaWorkersImpl;
 import com.rtbhouse.kafka.workers.impl.Partitioned;
 import com.rtbhouse.kafka.workers.impl.metrics.WorkersMetrics;
+import com.rtbhouse.kafka.workers.impl.offsets.ClosedRange;
 import com.rtbhouse.kafka.workers.impl.offsets.OffsetsState;
 import com.rtbhouse.kafka.workers.impl.partitioner.SubpartitionSupplier;
 import com.rtbhouse.kafka.workers.impl.queues.QueuesManager;
@@ -33,7 +41,7 @@ public class ConsumerThread<K, V> extends AbstractWorkersThread implements Parti
     private static final Logger logger = LoggerFactory.getLogger(ConsumerThread.class);
 
     private final Duration consumerPollTimeout;
-    private final long consumerProcessingTimeoutMs;
+    private final Duration consumerProcessingTimeout;
     private final long consumerCommitIntervalMs;
 
     private final QueuesManager<K, V> queuesManager;
@@ -55,7 +63,7 @@ public class ConsumerThread<K, V> extends AbstractWorkersThread implements Parti
         super("consumer-thread", config, metrics, workers);
 
         this.consumerPollTimeout = Duration.ofMillis(config.getLong(WorkersConfig.CONSUMER_POLL_TIMEOUT_MS));
-        this.consumerProcessingTimeoutMs = config.getLong(WorkersConfig.CONSUMER_PROCESSING_TIMEOUT_MS);
+        this.consumerProcessingTimeout = Duration.ofMillis(config.getLong(WorkersConfig.CONSUMER_PROCESSING_TIMEOUT_MS));
         this.consumerCommitIntervalMs = config.getLong(WorkersConfig.CONSUMER_COMMIT_INTERVAL_MS);
 
         this.queuesManager = queuesManager;
@@ -88,10 +96,13 @@ public class ConsumerThread<K, V> extends AbstractWorkersThread implements Parti
         long currentTime = System.currentTimeMillis();
         for (ConsumerRecord<K, V> record : records) {
             WorkerSubpartition subpartition = subpartitionSupplier.subpartition(record);
+            //TODO: delete
             offsetsState.addConsumed(subpartition.topicPartition(), record.offset(), currentTime);
             queuesManager.push(subpartition, new WorkerRecord<>(record, subpartition.subpartition()));
             metrics.recordSensor(WorkersMetrics.CONSUMED_OFFSET_METRIC, subpartition.topicPartition(), record.offset());
         }
+
+        addConsumedRanges(records);
 
         Set<TopicPartition> partitionsToPause = queuesManager.getPartitionsToPause(consumer.assignment(),
                 consumer.paused());
@@ -115,6 +126,28 @@ public class ConsumerThread<K, V> extends AbstractWorkersThread implements Parti
         if (shouldCommitNow()) {
             commitAsync();
         }
+    }
+
+    private void addConsumedRanges(ConsumerRecords<K, V> records) {
+        Map<TopicPartition, List<Long>> offsetsMap = Streams.stream(records)
+                .collect(Collectors.groupingBy(this::topicPartition, Collectors.mapping(
+                        ConsumerRecord::offset,
+                        Collectors.toList()
+                )));
+
+        offsetsMap.forEach((partition, offsets) -> {
+            long minOffset = offsets.get(0);
+            long maxOffset = offsets.get(offsets.size() - 1);
+            //noinspection UnstableApiUsage
+            checkState(Comparators.isInStrictOrder(offsets, naturalOrder()));
+            checkState(offsets.size() == maxOffset - minOffset + 1);
+
+            offsetsState.addConsumed(partition, ClosedRange.of(minOffset, maxOffset));
+        });
+    }
+
+    private TopicPartition topicPartition(ConsumerRecord<K, V> record) {
+        return new TopicPartition(record.topic(), record.partition());
     }
 
     @Override
@@ -161,8 +194,8 @@ public class ConsumerThread<K, V> extends AbstractWorkersThread implements Parti
     }
 
     private void commitAsync() {
-        long minTimestamp = System.currentTimeMillis() - consumerProcessingTimeoutMs;
-        Map<TopicPartition, OffsetAndMetadata> offsets = offsetsState.getOffsetsToCommit(consumer.assignment(), minTimestamp);
+        Instant minCreatedAt = Instant.now().minus(consumerProcessingTimeout);
+        Map<TopicPartition, OffsetAndMetadata> offsets = offsetsState.getOffsetsToCommit(consumer.assignment(), minCreatedAt);
         logger.debug("committing offsets async: {}", offsets);
         if (!offsets.isEmpty()) {
             consumer.commitAsync(offsets, commitCallback);

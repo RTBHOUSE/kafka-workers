@@ -3,7 +3,6 @@ package com.rtbhouse.kafka.workers.impl.consumer;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import com.rtbhouse.kafka.workers.api.WorkersConfig;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.clients.consumer.OffsetCommitCallback;
 import org.apache.kafka.clients.consumer.RetriableCommitFailedException;
@@ -11,6 +10,7 @@ import org.apache.kafka.common.TopicPartition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.rtbhouse.kafka.workers.api.WorkersConfig;
 import com.rtbhouse.kafka.workers.impl.errors.FailedCommitException;
 import com.rtbhouse.kafka.workers.impl.metrics.WorkersMetrics;
 import com.rtbhouse.kafka.workers.impl.offsets.OffsetsState;
@@ -22,7 +22,7 @@ public class OffsetCommitCallbackImpl implements OffsetCommitCallback {
     private final int maxFailuresInRow;
 
     private final ConsumerThread<?, ?> consumerThread;
-    private final OffsetsState offsetsState;
+    private final OffsetsState offsetsStateInterface;
     private final WorkersMetrics metrics;
 
     private final AtomicInteger failuresInRow = new AtomicInteger();
@@ -30,13 +30,13 @@ public class OffsetCommitCallbackImpl implements OffsetCommitCallback {
     public OffsetCommitCallbackImpl(
             WorkersConfig config,
             ConsumerThread<?, ?> consumerThread,
-            OffsetsState offsetsState,
+            OffsetsState offsetsStateInterface,
             WorkersMetrics metrics) {
 
         this.maxFailuresInRow = config.getInt(WorkersConfig.CONSUMER_MAX_RETRIABLE_FAILURES);
 
         this.consumerThread = consumerThread;
-        this.offsetsState = offsetsState;
+        this.offsetsStateInterface = offsetsStateInterface;
         this.metrics = metrics;
     }
 
@@ -65,7 +65,7 @@ public class OffsetCommitCallbackImpl implements OffsetCommitCallback {
                 long offset = entry.getValue().offset();
                 metrics.recordSensor(WorkersMetrics.COMMITTED_OFFSET_METRIC, partition, offset);
             }
-            offsetsState.removeCommitted(offsets);
+            offsetsStateInterface.removeCommitted(offsets);
         }
     }
 
