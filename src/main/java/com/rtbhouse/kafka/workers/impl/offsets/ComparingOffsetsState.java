@@ -7,6 +7,8 @@ import java.util.Set;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
 
+import com.rtbhouse.kafka.workers.impl.range.ClosedRange;
+
 public class ComparingOffsetsState implements OffsetsState {
 
 
@@ -16,7 +18,7 @@ public class ComparingOffsetsState implements OffsetsState {
     }
 
     @Override
-    public void addConsumed(TopicPartition partition, OffsetRange range, Instant consumedAt) {
+    public void addConsumed(TopicPartition partition, ClosedRange range, Instant consumedAt) {
 
     }
 

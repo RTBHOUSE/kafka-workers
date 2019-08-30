@@ -1,8 +1,5 @@
 package com.rtbhouse.kafka.workers.impl.consumer;
 
-import static com.google.common.base.Preconditions.checkState;
-import static com.rtbhouse.kafka.workers.impl.offsets.OffsetStatus.CONSUMED;
-
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Collection;
@@ -21,7 +18,6 @@ import org.apache.kafka.common.errors.WakeupException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 import com.rtbhouse.kafka.workers.api.WorkersConfig;
 import com.rtbhouse.kafka.workers.api.WorkersException;
@@ -31,10 +27,10 @@ import com.rtbhouse.kafka.workers.impl.AbstractWorkersThread;
 import com.rtbhouse.kafka.workers.impl.KafkaWorkersImpl;
 import com.rtbhouse.kafka.workers.impl.Partitioned;
 import com.rtbhouse.kafka.workers.impl.metrics.WorkersMetrics;
-import com.rtbhouse.kafka.workers.impl.offsets.OffsetRange;
 import com.rtbhouse.kafka.workers.impl.offsets.OffsetsState;
 import com.rtbhouse.kafka.workers.impl.partitioner.SubpartitionSupplier;
 import com.rtbhouse.kafka.workers.impl.queues.QueuesManager;
+import com.rtbhouse.kafka.workers.impl.range.RangeUtils;
 
 public class ConsumerThread<K, V> extends AbstractWorkersThread implements Partitioned {
 
@@ -139,35 +135,10 @@ public class ConsumerThread<K, V> extends AbstractWorkersThread implements Parti
                 )));
 
         offsetsMap.forEach((partition, offsets) -> {
-            consumedRanges(offsets).forEach(range -> offsetsState.addConsumed(partition, range, consumedAt));
+            RangeUtils.rangesFromLongs(offsets).forEach(
+                    range -> offsetsState.addConsumed(partition, range, consumedAt)
+            );
         });
-    }
-
-    private List<OffsetRange> consumedRanges(List<Long> offsets) {
-        ImmutableList.Builder<OffsetRange> listBuilder = ImmutableList.builder();
-        OffsetRange.Builder rangeBuilder = null;
-
-        for (Long offset : offsets) {
-            if (rangeBuilder == null) {
-                rangeBuilder = OffsetRange.builder(offset, CONSUMED);
-                continue;
-            }
-
-            checkState(offset > rangeBuilder.getLastOffset());
-
-            if (offset == rangeBuilder.getLastOffset() + 1) {
-                rangeBuilder.extend(offset);
-            } else {
-                listBuilder.add(rangeBuilder.build());
-                rangeBuilder = OffsetRange.builder(offset, CONSUMED);
-            }
-        }
-
-        if (rangeBuilder != null) {
-            listBuilder.add(rangeBuilder.build());
-        }
-
-        return listBuilder.build();
     }
 
     private TopicPartition topicPartition(ConsumerRecord<K, V> record) {

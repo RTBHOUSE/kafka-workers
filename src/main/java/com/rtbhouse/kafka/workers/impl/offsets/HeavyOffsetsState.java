@@ -16,6 +16,7 @@ import org.apache.kafka.common.TopicPartition;
 import com.rtbhouse.kafka.workers.impl.Partitioned;
 import com.rtbhouse.kafka.workers.impl.errors.BadOffsetException;
 import com.rtbhouse.kafka.workers.impl.errors.ProcessingTimeoutException;
+import com.rtbhouse.kafka.workers.impl.range.ClosedRange;
 
 public class HeavyOffsetsState implements Partitioned, OffsetsState {
 
@@ -57,7 +58,7 @@ public class HeavyOffsetsState implements Partitioned, OffsetsState {
     }
 
     @Override
-    public void addConsumed(TopicPartition partition, OffsetRange range) {
+    public void addConsumed(TopicPartition partition, ClosedRange range) {
         throw new IllegalStateException("not implemented");
     }
 
