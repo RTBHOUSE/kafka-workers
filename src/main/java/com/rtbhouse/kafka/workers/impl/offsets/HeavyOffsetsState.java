@@ -57,7 +57,7 @@ public class HeavyOffsetsState implements Partitioned, OffsetsState {
     }
 
     @Override
-    public void addConsumed(TopicPartition partition, ClosedRange range) {
+    public void addConsumed(TopicPartition partition, OffsetRange range) {
         throw new IllegalStateException("not implemented");
     }
 

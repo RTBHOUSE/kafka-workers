@@ -16,7 +16,7 @@ public class ComparingOffsetsState implements OffsetsState {
     }
 
     @Override
-    public void addConsumed(TopicPartition partition, ClosedRange range) {
+    public void addConsumed(TopicPartition partition, OffsetRange range, Instant consumedAt) {
 
     }
 

@@ -1,7 +1,7 @@
 package com.rtbhouse.kafka.workers.impl.consumer;
 
 import static com.google.common.base.Preconditions.checkState;
-import static java.util.Comparator.naturalOrder;
+import static com.rtbhouse.kafka.workers.impl.offsets.OffsetStatus.CONSUMED;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -21,7 +21,7 @@ import org.apache.kafka.common.errors.WakeupException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.collect.Comparators;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 import com.rtbhouse.kafka.workers.api.WorkersConfig;
 import com.rtbhouse.kafka.workers.api.WorkersException;
@@ -31,7 +31,7 @@ import com.rtbhouse.kafka.workers.impl.AbstractWorkersThread;
 import com.rtbhouse.kafka.workers.impl.KafkaWorkersImpl;
 import com.rtbhouse.kafka.workers.impl.Partitioned;
 import com.rtbhouse.kafka.workers.impl.metrics.WorkersMetrics;
-import com.rtbhouse.kafka.workers.impl.offsets.ClosedRange;
+import com.rtbhouse.kafka.workers.impl.offsets.OffsetRange;
 import com.rtbhouse.kafka.workers.impl.offsets.OffsetsState;
 import com.rtbhouse.kafka.workers.impl.partitioner.SubpartitionSupplier;
 import com.rtbhouse.kafka.workers.impl.queues.QueuesManager;
@@ -94,6 +94,8 @@ public class ConsumerThread<K, V> extends AbstractWorkersThread implements Parti
         listener.rethrowExceptionCaughtDuringRebalance();
 
         long currentTime = System.currentTimeMillis();
+        addConsumedRanges(records);
+
         for (ConsumerRecord<K, V> record : records) {
             WorkerSubpartition subpartition = subpartitionSupplier.subpartition(record);
             //TODO: delete
@@ -101,8 +103,6 @@ public class ConsumerThread<K, V> extends AbstractWorkersThread implements Parti
             queuesManager.push(subpartition, new WorkerRecord<>(record, subpartition.subpartition()));
             metrics.recordSensor(WorkersMetrics.CONSUMED_OFFSET_METRIC, subpartition.topicPartition(), record.offset());
         }
-
-        addConsumedRanges(records);
 
         Set<TopicPartition> partitionsToPause = queuesManager.getPartitionsToPause(consumer.assignment(),
                 consumer.paused());
@@ -129,6 +129,9 @@ public class ConsumerThread<K, V> extends AbstractWorkersThread implements Parti
     }
 
     private void addConsumedRanges(ConsumerRecords<K, V> records) {
+        Instant consumedAt = Instant.now();
+
+        @SuppressWarnings("UnstableApiUsage")
         Map<TopicPartition, List<Long>> offsetsMap = Streams.stream(records)
                 .collect(Collectors.groupingBy(this::topicPartition, Collectors.mapping(
                         ConsumerRecord::offset,
@@ -136,14 +139,35 @@ public class ConsumerThread<K, V> extends AbstractWorkersThread implements Parti
                 )));
 
         offsetsMap.forEach((partition, offsets) -> {
-            long minOffset = offsets.get(0);
-            long maxOffset = offsets.get(offsets.size() - 1);
-            //noinspection UnstableApiUsage
-            checkState(Comparators.isInStrictOrder(offsets, naturalOrder()));
-            checkState(offsets.size() == maxOffset - minOffset + 1);
-
-            offsetsState.addConsumed(partition, ClosedRange.of(minOffset, maxOffset));
+            consumedRanges(offsets).forEach(range -> offsetsState.addConsumed(partition, range, consumedAt));
         });
+    }
+
+    private List<OffsetRange> consumedRanges(List<Long> offsets) {
+        ImmutableList.Builder<OffsetRange> listBuilder = ImmutableList.builder();
+        OffsetRange.Builder rangeBuilder = null;
+
+        for (Long offset : offsets) {
+            if (rangeBuilder == null) {
+                rangeBuilder = OffsetRange.builder(offset, CONSUMED);
+                continue;
+            }
+
+            checkState(offset > rangeBuilder.getLastOffset());
+
+            if (offset == rangeBuilder.getLastOffset() + 1) {
+                rangeBuilder.extend(offset);
+            } else {
+                listBuilder.add(rangeBuilder.build());
+                rangeBuilder = OffsetRange.builder(offset, CONSUMED);
+            }
+        }
+
+        if (rangeBuilder != null) {
+            listBuilder.add(rangeBuilder.build());
+        }
+
+        return listBuilder.build();
     }
 
     private TopicPartition topicPartition(ConsumerRecord<K, V> record) {
