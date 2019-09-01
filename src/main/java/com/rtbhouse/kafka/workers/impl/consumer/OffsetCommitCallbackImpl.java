@@ -22,7 +22,7 @@ public class OffsetCommitCallbackImpl implements OffsetCommitCallback {
     private final int maxFailuresInRow;
 
     private final ConsumerThread<?, ?> consumerThread;
-    private final OffsetsState offsetsStateInterface;
+    private final OffsetsState offsetsState;
     private final WorkersMetrics metrics;
 
     private final AtomicInteger failuresInRow = new AtomicInteger();
@@ -30,13 +30,13 @@ public class OffsetCommitCallbackImpl implements OffsetCommitCallback {
     public OffsetCommitCallbackImpl(
             WorkersConfig config,
             ConsumerThread<?, ?> consumerThread,
-            OffsetsState offsetsStateInterface,
+            OffsetsState offsetsState,
             WorkersMetrics metrics) {
 
         this.maxFailuresInRow = config.getInt(WorkersConfig.CONSUMER_MAX_RETRIABLE_FAILURES);
 
         this.consumerThread = consumerThread;
-        this.offsetsStateInterface = offsetsStateInterface;
+        this.offsetsState = offsetsState;
         this.metrics = metrics;
     }
 
@@ -65,7 +65,7 @@ public class OffsetCommitCallbackImpl implements OffsetCommitCallback {
                 long offset = entry.getValue().offset();
                 metrics.recordSensor(WorkersMetrics.COMMITTED_OFFSET_METRIC, partition, offset);
             }
-            offsetsStateInterface.removeCommitted(offsets);
+            offsetsState.removeCommitted(offsets);
         }
     }
 

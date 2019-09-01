@@ -1,7 +1,7 @@
 package com.rtbhouse.kafka.workers.impl.metrics;
 
-import static com.rtbhouse.kafka.workers.impl.offsets.DefaultOffsetsState.Status.CONSUMED;
-import static com.rtbhouse.kafka.workers.impl.offsets.DefaultOffsetsState.Status.PROCESSED;
+import static com.rtbhouse.kafka.workers.impl.offsets.OffsetStatus.CONSUMED;
+import static com.rtbhouse.kafka.workers.impl.offsets.OffsetStatus.PROCESSED;
 
 import java.util.Collection;
 import java.util.List;
@@ -44,14 +44,12 @@ public class WorkersMetrics {
     public static final String OFFSETS_PROCESSED_COUNT = "offsets.processed.count";
     public static final String OFFSET_RANGES_CONSUMED_COUNT = "offset-ranges.consumed.count";
     public static final String OFFSET_RANGES_PROCESSED_COUNT = "offset-ranges.processed.count";
-    public static final String PROCESSED_RANGES_TO_PROCESSED_OFFSETS_RATIO = "processed-ranges-to-processed-offsets.ratio";
 
     private static final List<String> ALL_OFFSETS_STATE_METRIC_NAMES = ImmutableList.of(
             OFFSETS_CONSUMED_COUNT,
             OFFSETS_PROCESSED_COUNT,
             OFFSET_RANGES_CONSUMED_COUNT,
-            OFFSET_RANGES_PROCESSED_COUNT,
-            PROCESSED_RANGES_TO_PROCESSED_OFFSETS_RATIO
+            OFFSET_RANGES_PROCESSED_COUNT
     );
 
     private final Metrics metrics;
@@ -163,9 +161,6 @@ public class WorkersMetrics {
                 (config, now) -> offsetsState.getCurrMetricInfo(partition).getOffsetRangesStatusCount(CONSUMED));
         metrics.addMetric(metrics.metricName(OFFSET_RANGES_PROCESSED_COUNT, group),
                 (config, now) -> offsetsState.getCurrMetricInfo(partition).getOffsetRangesStatusCount(PROCESSED));
-
-        metrics.addMetric(metrics.metricName(PROCESSED_RANGES_TO_PROCESSED_OFFSETS_RATIO, group),
-                (config, now) -> offsetsState.getCurrMetricInfo(partition).getProcessedRangesToProcessedOffsetsRatio());
     }
 
     private String offsetsStateCurrInfosPartitionGroup(TopicPartition partition) {
@@ -189,9 +184,6 @@ public class WorkersMetrics {
                 (config, now) -> offsetsState.getMaxMetricInfo(partition).getOffsetRangesStatusCount(CONSUMED));
         metrics.addMetric(metrics.metricName(OFFSET_RANGES_PROCESSED_COUNT, group),
                 (config, now) -> offsetsState.getMaxMetricInfo(partition).getOffsetRangesStatusCount(PROCESSED));
-
-        metrics.addMetric(metrics.metricName(PROCESSED_RANGES_TO_PROCESSED_OFFSETS_RATIO, group),
-                (config, now) -> offsetsState.getMaxMetricInfo(partition).getProcessedRangesToProcessedOffsetsRatio());
     }
 
     private String offsetsStateMaxPartitionGroup(TopicPartition partition) {

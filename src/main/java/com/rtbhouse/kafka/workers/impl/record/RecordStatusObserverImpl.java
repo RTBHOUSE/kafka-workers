@@ -48,21 +48,21 @@ public class RecordStatusObserverImpl<K, V> implements RecordStatusObserver {
 
     private void markRecordProcessed() {
         context.metrics.recordSensor(WorkersMetrics.PROCESSED_OFFSET_METRIC, subpartition, offset);
-        context.offsetsStateInterface.updateProcessed(subpartition.topicPartition(), offset);
+        context.offsetsState.updateProcessed(subpartition.topicPartition(), offset);
     }
 
     public static class Context<K, V> {
 
         final WorkersMetrics metrics;
         final WorkersConfig config;
-        final OffsetsState offsetsStateInterface;
+        final OffsetsState offsetsState;
         final WorkerThread<K, V> workerThread;
 
         public Context(WorkersMetrics metrics, WorkersConfig config,
-                       OffsetsState offsetsStateInterface, WorkerThread<K, V> workerThread) {
+                       OffsetsState offsetsState, WorkerThread<K, V> workerThread) {
             this.metrics = metrics;
             this.config = config;
-            this.offsetsStateInterface = offsetsStateInterface;
+            this.offsetsState = offsetsState;
             this.workerThread = workerThread;
         }
 

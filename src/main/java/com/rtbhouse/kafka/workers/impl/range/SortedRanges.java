@@ -1,19 +1,76 @@
 package com.rtbhouse.kafka.workers.impl.range;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.rtbhouse.kafka.workers.impl.range.ClosedRange.singleElementRange;
 
+import java.util.AbstractCollection;
+import java.util.Collection;
 import java.util.Comparator;
+import java.util.Iterator;
 import java.util.NavigableSet;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.TreeSet;
 
-public class SortedRanges {
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class SortedRanges extends AbstractCollection<ClosedRange> {
+
+    private static final Logger logger = LoggerFactory.getLogger(SortedRanges.class);
 
     private NavigableSet<ClosedRange> ranges = new TreeSet<>(Comparator.comparingLong(ClosedRange::lowerEndpoint));
 
-    public synchronized void addRange(ClosedRange range) {
+    public Optional<ClosedRange> getFirst() {
+        try {
+            return Optional.of(ranges.first());
+        } catch (NoSuchElementException e) {
+            return Optional.empty();
+        }
+    }
+
+    @Override
+    public int size() {
+        return ranges.size();
+    }
+
+    public Optional<Long> getMinExistingElement(ClosedRange range) {
+        checkNotNull(range);
+        ClosedRange prevRange = ranges.floor(range);
+        if (prevRange != null) {
+            if (range.lowerEndpoint() <= prevRange.upperEndpoint()) {
+                return Optional.of(range.lowerEndpoint());
+            }
+        }
+
+        ClosedRange nextRange = ranges.ceiling(range);
+        if (nextRange != null) {
+            if (nextRange.lowerEndpoint() <= range.upperEndpoint()) {
+                return Optional.of(nextRange.lowerEndpoint());
+            }
+        }
+
+        return Optional.empty();
+    }
+
+    @Override
+    public boolean contains(Object range) {
+        return ranges.contains(range);
+    }
+
+    public boolean containsSingleElement(long element) {
+        ClosedRange enclosingRange = ranges.floor(singleElementRange(element));
+        return enclosingRange != null && element <= enclosingRange.upperEndpoint();
+    }
+
+    @Override
+    public Iterator<ClosedRange> iterator() {
+        return ranges.iterator();
+    }
+
+    @Override
+    public synchronized boolean add(ClosedRange range) {
         ClosedRange prevRange = ranges.floor(range);
         ClosedRange nextRange = ranges.ceiling(range);
 
@@ -33,29 +90,36 @@ public class SortedRanges {
                 // the given range joins prev and next ranges
                 ranges.remove(prevRange);
                 ranges.remove(nextRange);
-                ranges.add(ClosedRange.range(prevRange.lowerEndpoint(), nextRange.upperEndpoint()));
+                return ranges.add(ClosedRange.range(prevRange.lowerEndpoint(), nextRange.upperEndpoint()));
             } else {
                 ranges.remove(prevRange);
-                ranges.add(ClosedRange.range(prevRange.lowerEndpoint(), range.upperEndpoint()));
+                return ranges.add(ClosedRange.range(prevRange.lowerEndpoint(), range.upperEndpoint()));
             }
         } else {
             if (nextRange != null && touchingRanges(range, nextRange)) {
                 ranges.remove(nextRange);
-                ranges.add(ClosedRange.range(range.lowerEndpoint(), nextRange.upperEndpoint()));
+                return ranges.add(ClosedRange.range(range.lowerEndpoint(), nextRange.upperEndpoint()));
             } else {
-                ranges.add(range);
+                return ranges.add(range);
             }
         }
     }
 
-    public synchronized void addSingleElement(long element) {
-        addRange(singleElementRange(element));
+    private boolean touchingRanges(ClosedRange range1, ClosedRange range2) {
+        return range1.upperEndpoint() + 1 == range2.lowerEndpoint();
     }
 
-    public synchronized void removeRange(ClosedRange range) {
+    public synchronized void addSingleElement(long element) {
+        add(singleElementRange(element));
+    }
+
+    @Override
+    public synchronized boolean remove(Object o) {
+        ClosedRange range = (ClosedRange) o;
         ClosedRange enclosingRange = ranges.floor(range);
         if (enclosingRange == null || !enclosingRange.encloses(range)) {
-            throw new NoSuchElementException("SortedRanges does not contain " + range);
+            logger.warn("SortedRanges does not contain/enclose {} (cannot remove)", range);
+            return false;
         }
 
         ranges.remove(enclosingRange);
@@ -65,34 +129,45 @@ public class SortedRanges {
         if (enclosingRange.upperEndpoint() > range.upperEndpoint()) {
             ranges.add(ClosedRange.range(range.upperEndpoint() + 1, enclosingRange.upperEndpoint()));
         }
+
+        return true;
     }
 
-    public synchronized void removeSingleElement(long element) {
-        removeRange(singleElementRange(element));
+    public synchronized boolean removeSingleElement(long element) {
+        return remove(singleElementRange(element));
     }
 
-    public synchronized void removeElementsLowerOrEqual(long element) {
-        if (getFirst().isEmpty()) {
-            throw new NoSuchElementException("SortedRanges is empty");
+    public synchronized boolean removeElementsLowerOrEqual(long element) {
+        Optional<ClosedRange> firstMaybe = getFirst();
+        if (firstMaybe.isEmpty()) {
+            return false;
         } else {
-            long first = getFirst().get().lowerEndpoint();
+            long first = firstMaybe.get().lowerEndpoint();
             if (first > element) {
-                throw new NoSuchElementException(String.format("first [%s] > [%s] element", first, element));
+                return false;
             } else {
-                removeRange(ClosedRange.range(first, element));
+                return remove(ClosedRange.range(first, element));
             }
         }
     }
 
-    private boolean touchingRanges(ClosedRange range1, ClosedRange range2) {
-        return range1.upperEndpoint() + 1 == range2.lowerEndpoint();
+    @Override
+    public synchronized boolean addAll(Collection<? extends ClosedRange> c) {
+        return super.addAll(c);
     }
 
-    public Optional<ClosedRange> getFirst() {
-        try {
-            return Optional.of(ranges.first());
-        } catch (NoSuchElementException e) {
-            return Optional.empty();
-        }
+    @Override
+    public synchronized boolean removeAll(Collection<?> c) {
+        return super.removeAll(c);
+    }
+
+    @Override
+    public synchronized boolean retainAll(Collection<?> c) {
+        return super.retainAll(c);
+    }
+
+    @Override
+    public synchronized void clear() {
+        super.clear();
     }
 }

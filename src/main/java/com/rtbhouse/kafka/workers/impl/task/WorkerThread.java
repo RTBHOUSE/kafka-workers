@@ -42,7 +42,7 @@ public class WorkerThread<K, V> extends AbstractWorkersThread {
             KafkaWorkersImpl<K, V> workers,
             TaskManager<K, V> taskManager,
             QueuesManager<K, V> queueManager,
-            OffsetsState offsetsStateInterface) {
+            OffsetsState offsetsState) {
         super("worker-thread-" + workerId, config, metrics, workers);
 
         this.workerId = workerId;
@@ -52,7 +52,7 @@ public class WorkerThread<K, V> extends AbstractWorkersThread {
 
         this.taskManager = taskManager;
         this.queueManager = queueManager;
-        this.recordStatusObserverThreadContext = new RecordStatusObserverImpl.Context<>(metrics, config, offsetsStateInterface, this);
+        this.recordStatusObserverThreadContext = new RecordStatusObserverImpl.Context<>(metrics, config, offsetsState, this);
     }
 
     @Override

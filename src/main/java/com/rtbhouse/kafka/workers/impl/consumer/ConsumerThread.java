@@ -89,13 +89,10 @@ public class ConsumerThread<K, V> extends AbstractWorkersThread implements Parti
         }
         listener.rethrowExceptionCaughtDuringRebalance();
 
-        long currentTime = System.currentTimeMillis();
         addConsumedRanges(records);
 
         for (ConsumerRecord<K, V> record : records) {
             WorkerSubpartition subpartition = subpartitionSupplier.subpartition(record);
-            //TODO: delete
-            offsetsState.addConsumed(subpartition.topicPartition(), record.offset(), currentTime);
             queuesManager.push(subpartition, new WorkerRecord<>(record, subpartition.subpartition()));
             metrics.recordSensor(WorkersMetrics.CONSUMED_OFFSET_METRIC, subpartition.topicPartition(), record.offset());
         }

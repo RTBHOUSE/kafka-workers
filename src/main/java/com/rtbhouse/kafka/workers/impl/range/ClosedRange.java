@@ -2,7 +2,10 @@ package com.rtbhouse.kafka.workers.impl.range;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-public class ClosedRange {
+import java.util.Iterator;
+import java.util.stream.LongStream;
+
+public class ClosedRange implements Iterable<Long> {
     private final long lowerEndpoint;
     private final long upperEndpoint;
 
@@ -55,6 +58,11 @@ public class ClosedRange {
     @Override
     public String toString() {
         return "ClosedRange{" + lowerEndpoint + ", " + upperEndpoint + "}";
+    }
+
+    @Override
+    public Iterator<Long> iterator() {
+        return LongStream.rangeClosed(lowerEndpoint, upperEndpoint).iterator();
     }
 
     public static class Builder {

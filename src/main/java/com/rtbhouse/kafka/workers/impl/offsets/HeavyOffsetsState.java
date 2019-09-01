@@ -13,12 +13,11 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
 
-import com.rtbhouse.kafka.workers.impl.Partitioned;
 import com.rtbhouse.kafka.workers.impl.errors.BadOffsetException;
 import com.rtbhouse.kafka.workers.impl.errors.ProcessingTimeoutException;
 import com.rtbhouse.kafka.workers.impl.range.ClosedRange;
 
-public class HeavyOffsetsState implements Partitioned, OffsetsState {
+public class HeavyOffsetsState implements OffsetsState {
 
     private static class Info {
         public OffsetStatus status;
@@ -47,7 +46,11 @@ public class HeavyOffsetsState implements Partitioned, OffsetsState {
     }
 
     @Override
-    public void addConsumed(TopicPartition partition, long offset, long timestamp) {
+    public void addConsumed(TopicPartition partition, ClosedRange range, Instant consumedAt) {
+        range.forEach(offset -> addConsumed(partition, offset, consumedAt.toEpochMilli()));
+    }
+
+    private void addConsumed(TopicPartition partition, long offset, long timestamp) {
         offsets.computeIfPresent(partition, (k, v) -> {
             if (v.get(offset) != null) {
                 throw new BadOffsetException("Offset: " + offset + " for partition: " + partition + " was consumed before");
@@ -55,11 +58,6 @@ public class HeavyOffsetsState implements Partitioned, OffsetsState {
             v.put(offset, new Info(OffsetStatus.CONSUMED, timestamp));
             return v;
         });
-    }
-
-    @Override
-    public void addConsumed(TopicPartition partition, ClosedRange range) {
-        throw new IllegalStateException("not implemented");
     }
 
     @Override
