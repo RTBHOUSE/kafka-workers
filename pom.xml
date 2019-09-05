@@ -79,7 +79,7 @@
         <maven.clean.plugin.version>3.0.0</maven.clean.plugin.version>
         <apache.kafka.version>2.0.0</apache.kafka.version>
         <google.guava.version>27.0.1-jre</google.guava.version>
-        <junit.version>4.11</junit.version>
+        <junit.version>4.12</junit.version>
         <mockito.version>2.23.4</mockito.version>
         <assertj.version>3.8.0</assertj.version>
         <apache.curator.version>2.11.1</apache.curator.version>
@@ -188,6 +188,13 @@
             <version>${logback.version}</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>pl.pragmatists</groupId>
+            <artifactId>JUnitParams</artifactId>
+            <version>1.1.1</version>
+            <scope>test</scope>
+        </dependency>
+
 
     </dependencies>
 

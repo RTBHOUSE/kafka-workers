@@ -172,7 +172,7 @@ public class ConsumerThread<K, V> extends AbstractWorkersThread implements Parti
     }
 
     private void commitSync() {
-        Map<TopicPartition, OffsetAndMetadata> offsets = offsetsState.getOffsetsToCommit(consumer.assignment(), null);
+        Map<TopicPartition, OffsetAndMetadata> offsets = offsetsState.getOffsetsToCommit(consumer.assignment());
         logger.debug("committing offsets sync: {}", offsets);
         if (!offsets.isEmpty()) {
             try {

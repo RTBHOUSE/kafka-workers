@@ -3,6 +3,7 @@ package com.rtbhouse.kafka.workers.impl.range;
 import static com.google.common.base.Preconditions.checkState;
 
 import java.util.List;
+import java.util.stream.LongStream;
 
 import com.google.common.collect.ImmutableList;
 
@@ -33,5 +34,9 @@ public class RangeUtils {
         }
 
         return listBuilder.build();
+    }
+
+    public static LongStream elementsStream(ClosedRange closedRange) {
+        return LongStream.rangeClosed(closedRange.lowerEndpoint(), closedRange.upperEndpoint());
     }
 }

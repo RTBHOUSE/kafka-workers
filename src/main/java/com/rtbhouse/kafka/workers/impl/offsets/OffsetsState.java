@@ -18,10 +18,18 @@ public interface OffsetsState extends Partitioned {
 
     void addConsumed(TopicPartition partition, ClosedRange range, Instant consumedAt);
 
+    default void addConsumed(TopicPartition partition, ClosedRange range) {
+        addConsumed(partition, range, Instant.now());
+    }
+
     //TODO: maybe some buffering should be implemented
     void updateProcessed(TopicPartition partition, long offset);
 
     Map<TopicPartition, OffsetAndMetadata> getOffsetsToCommit(Set<TopicPartition> assignedPartitions, Instant minConsumedAt);
+
+    default Map<TopicPartition, OffsetAndMetadata> getOffsetsToCommit(Set<TopicPartition> assignedPartitions) {
+        return getOffsetsToCommit(assignedPartitions, null);
+    }
 
     void removeCommitted(Map<TopicPartition, OffsetAndMetadata> offsetsAndMetadata);
 }
