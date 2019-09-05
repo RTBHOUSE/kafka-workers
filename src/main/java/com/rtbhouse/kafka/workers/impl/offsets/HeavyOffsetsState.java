@@ -113,7 +113,8 @@ public class HeavyOffsetsState implements OffsetsState {
                 offsetToCommit = offset;
             } else {
                 if (minConsumedAt != null && Instant.ofEpochMilli(info.timestamp).isBefore(minConsumedAt)) {
-                    throw new ProcessingTimeoutException("Offset: " + offset + " for partition: " + partition + " exceeded timeout");
+                    throw new ProcessingTimeoutException(String.format("Offset [%s] for partition [%s] exceeded timeout",
+                            offset, partition));
                 }
                 // there is no need to check greater offsets because:
                 // 1. gap was found in processed offsets so we could not commit greater ones

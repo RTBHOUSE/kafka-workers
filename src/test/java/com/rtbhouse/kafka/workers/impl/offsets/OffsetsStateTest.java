@@ -265,7 +265,7 @@ public abstract class OffsetsStateTest {
 
         assertThatThrownBy(() -> {
             offsetsState.getOffsetsToCommit(partitions, Instant.ofEpochMilli(20L));
-        }).isInstanceOf(ProcessingTimeoutException.class).hasMessageContaining("Offset: 1 for partition: topic-0 exceeded timeout");
+        }).isInstanceOf(ProcessingTimeoutException.class).hasMessageContaining("Offset [1] for partition [topic-0] exceeded timeout");
     }
 
     //TODO: NEXT
