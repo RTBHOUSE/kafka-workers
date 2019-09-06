@@ -11,11 +11,11 @@ public class RangeUtils {
 
     public static List<ClosedRange> rangesFromLongs(Iterable<Long> longs) {
         ImmutableList.Builder<ClosedRange> listBuilder = ImmutableList.builder();
-        ClosedRange.Builder rangeBuilder = null;
+        BasicClosedRange.Builder rangeBuilder = null;
 
         for (Long offset : longs) {
             if (rangeBuilder == null) {
-                rangeBuilder = ClosedRange.builder(offset);
+                rangeBuilder = BasicClosedRange.builder(offset);
                 continue;
             }
 
@@ -25,7 +25,7 @@ public class RangeUtils {
                 rangeBuilder.extend(offset);
             } else {
                 listBuilder.add(rangeBuilder.build());
-                rangeBuilder = ClosedRange.builder(offset);
+                rangeBuilder = BasicClosedRange.builder(offset);
             }
         }
 
@@ -38,5 +38,11 @@ public class RangeUtils {
 
     public static LongStream elementsStream(ClosedRange closedRange) {
         return LongStream.rangeClosed(closedRange.lowerEndpoint(), closedRange.upperEndpoint());
+    }
+
+    public static LongStream reverseElementsStream(ClosedRange closedRange) {
+        long lowerEndpoint = closedRange.lowerEndpoint();
+        long upperEndpoint = closedRange.upperEndpoint();
+        return LongStream.rangeClosed(lowerEndpoint, upperEndpoint).map(i -> upperEndpoint - i + lowerEndpoint);
     }
 }

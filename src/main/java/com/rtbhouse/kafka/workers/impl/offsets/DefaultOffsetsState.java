@@ -8,12 +8,12 @@ import static com.rtbhouse.kafka.workers.impl.range.ClosedRange.range;
 import static com.rtbhouse.kafka.workers.impl.range.ClosedRange.singleElementRange;
 import static com.rtbhouse.kafka.workers.impl.util.TimeUtils.age;
 import static com.rtbhouse.kafka.workers.impl.util.TimeUtils.isOlderThan;
+import static java.util.Comparator.comparing;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.Deque;
 import java.util.Iterator;
 import java.util.List;
@@ -51,8 +51,6 @@ public class DefaultOffsetsState implements OffsetsState {
     private final WorkersMetrics metrics;
 
     private final Map<TopicPartition, ConsumedOffsets> consumedOffsetsMap = new ConcurrentHashMap<>();
-
-//    private final Map<TopicPartition, SortedRanges> consumedOffsetsMap_OLD = new ConcurrentHashMap<>();
 
     private final Map<TopicPartition, SortedRanges> processedOffsetsMap = new ConcurrentHashMap<>();
 
@@ -241,10 +239,24 @@ public class DefaultOffsetsState implements OffsetsState {
 
         Optional<ConsumedOffsetRange> consumedFirstRange = consumedOffsets.getFirst();
 
-        // Timeouts are reported for consumed offsets only (not for processed ones)
+        // Timeouts are reported for consumed offsets only
+        checkConsumedOffsetsTimeout(partition, consumedFirstRange, minConsumedAt);
+
+        if (consumedFirstRange.isPresent()) {
+            return processedOffsets.floorElement(consumedFirstRange.get().lowerEndpoint() - 1)
+                    .orElse(null);
+        } else {
+            return processedOffsets.getLast()
+                    .map(ClosedRange::upperEndpoint)
+                    .orElse(null);
+        }
+    }
+
+    @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+    private void checkConsumedOffsetsTimeout(TopicPartition partition, Optional<ConsumedOffsetRange> consumedFirstRange, Instant minConsumedAt) {
         if (minConsumedAt != null && consumedFirstRange.isPresent()) {
             ConsumedOffsetRange consumedRange = consumedFirstRange.get();
-            long minConsumedOffset = consumedRange.getRange().lowerEndpoint();
+            long minConsumedOffset = consumedRange.lowerEndpoint();
             Instant consumedAt = consumedRange.getConsumedAt();
             if (consumedAt.isBefore(minConsumedAt)) {
                 throw new ProcessingTimeoutException(
@@ -252,15 +264,6 @@ public class DefaultOffsetsState implements OffsetsState {
                                 minConsumedOffset, partition, consumedAt.toEpochMilli(), age(consumedAt).toMillis())
                 );
             }
-        }
-
-        if (consumedFirstRange.isPresent()) {
-            return processedOffsets.floorElement(consumedFirstRange.get().getRange().lowerEndpoint() - 1)
-                    .orElse(null);
-        } else {
-            return processedOffsets.getLast()
-                    .map(ClosedRange::upperEndpoint)
-                    .orElse(null);
         }
     }
 
@@ -277,6 +280,7 @@ public class DefaultOffsetsState implements OffsetsState {
         }
     }
 
+    //TODO: add synchronized?
     @Override
     public void removeCommitted(Map<TopicPartition, OffsetAndMetadata> offsetsAndMetadata) {
         logger.debug("OffsetsState.removeCommitted");
@@ -292,11 +296,14 @@ public class DefaultOffsetsState implements OffsetsState {
             return;
         }
 
-        removeProcessedOffsetsFromHeadConsumedOffsets(consumedOffsets, processedOffsets);
+        //TODO: remove
+//        removeProcessedOffsetsFromHeadConsumedOffsets(consumedOffsets, processedOffsets);
 
         long maxOffsetToRemove = offsetAndMetadata.offset() - 1;
-        boolean removed = processedOffsets.removeElementsLowerOrEqual(maxOffsetToRemove);
-        checkState(removed, "Cannot remove processed offsets up to [%s]", maxOffsetToRemove);
+        boolean removed = consumedOffsets.removeElementsLowerOrEqual(maxOffsetToRemove);
+        checkState(removed, "Cannot remove consumed offsets up to last committed offset [%s]", maxOffsetToRemove);
+        removed = processedOffsets.removeElementsLowerOrEqual(maxOffsetToRemove);
+        checkState(removed, "Cannot remove processed offsets up to last committed offset [%s]", maxOffsetToRemove);
     }
 
     public class TopicPartitionMetricInfo {
@@ -382,17 +389,17 @@ public class DefaultOffsetsState implements OffsetsState {
 
     // this implementation assumes that there is a single ConsumerThread
     private static class ConsumedOffsets {
-        private final EnhancedArrayDeque<ConsumedOffsetRange> ranges = new EnhancedArrayDeque<>();
+        private final EnhancedArrayDeque<ConsumedOffsetRange> consumedRanges = new EnhancedArrayDeque<>();
 
         synchronized Optional<Long> getMinExistingElement(ClosedRange range) {
-            Optional<ClosedRange> prevRange = floor(range).map(ConsumedOffsetRange::getRange);
+            Optional<ConsumedOffsetRange> prevRange = floor(range);
             if (prevRange.isPresent()) {
                 if (range.lowerEndpoint() <= prevRange.get().upperEndpoint()) {
                     return Optional.of(range.lowerEndpoint());
                 }
             }
 
-            Optional<ClosedRange> nextRange = ceiling(range).map(ConsumedOffsetRange::getRange);
+            Optional<ConsumedOffsetRange> nextRange = ceiling(range);
             if (nextRange.isPresent()) {
                 if (nextRange.get().lowerEndpoint() <= range.upperEndpoint()) {
                     return Optional.of(nextRange.get().lowerEndpoint());
@@ -403,110 +410,106 @@ public class DefaultOffsetsState implements OffsetsState {
         }
 
         private Optional<ConsumedOffsetRange> floor(ClosedRange range) {
-            return Optional.ofNullable(CollectionUtils.floorBinarySearch(ranges, range,
-                    ConsumedOffsetRange::getRange, Comparator.comparing(ClosedRange::lowerEndpoint)));
+            return Optional.ofNullable(CollectionUtils.floorBinarySearch(consumedRanges, range,
+                    comparing(ClosedRange::lowerEndpoint)));
         }
 
         private Optional<ConsumedOffsetRange> ceiling(ClosedRange range) {
-            return Optional.ofNullable(CollectionUtils.ceilingBinarySearch(ranges, range,
-                    ConsumedOffsetRange::getRange, Comparator.comparing(ClosedRange::lowerEndpoint)));
+            return Optional.ofNullable(CollectionUtils.ceilingBinarySearch(consumedRanges, range,
+                    comparing(ClosedRange::lowerEndpoint)));
         }
 
         synchronized void addConsumedRange(ConsumedOffsetRange range) {
-            if (!ranges.isEmpty()) {
-                ConsumedOffsetRange lastRange = ranges.getLast();
-                checkState(range.range.lowerEndpoint() > lastRange.range.upperEndpoint(),
-                        "condition not met [range.range.lowerEndpoint() > lastRange.range.upperEndpoint()]: " +
-                                "lastRange [%s], range [%s]", lastRange.range, range.range);
-                checkState(!range.consumedAt.isBefore(lastRange.consumedAt),
+            if (!consumedRanges.isEmpty()) {
+                ConsumedOffsetRange lastRange = consumedRanges.getLast();
+                checkState(range.lowerEndpoint() > lastRange.upperEndpoint(),
+                        "condition not met [range.lowerEndpoint() > lastRange.upperEndpoint()]: " +
+                                "lastRange [%s], range [%s]", lastRange, range);
+                checkState(!range.getConsumedAt().isBefore(lastRange.getConsumedAt()),
                         "condition not met [range.consumedAt >= lastRange.consumedAt]: " +
                                 "lastRange [%s], range [%s]", lastRange, range);
             }
 
-            ranges.addLast(range);
+            consumedRanges.addLast(range);
         }
 
         synchronized Instant getConsumedAt(long offset) {
-            while (!ranges.isEmpty() && ranges.peekFirst().range.upperEndpoint() < offset) {
-                ranges.pollFirst();
+            while (!consumedRanges.isEmpty() && consumedRanges.peekFirst().upperEndpoint() < offset) {
+                consumedRanges.pollFirst();
             }
 
-            checkState(!ranges.isEmpty() && ranges.peekFirst().range.contains(offset), "cannot find a range containing offset [%s] in consumed ranges", offset);
+            checkState(!consumedRanges.isEmpty() && consumedRanges.peekFirst().contains(offset), "cannot find a range containing offset [%s] in consumed ranges", offset);
 
-            return ranges.peekFirst().consumedAt;
+            return consumedRanges.peekFirst().getConsumedAt();
         }
 
         synchronized boolean contains(long offset) {
             return floor(singleElementRange(offset))
-                    .map(range -> offset <= range.getRange().upperEndpoint())
+                    .map(range -> offset <= range.upperEndpoint())
                     .orElse(false);
         }
 
         synchronized Optional<ConsumedOffsetRange> getFirst() {
             try {
-                return Optional.of(ranges.getFirst());
+                return Optional.of(consumedRanges.getFirst());
             } catch (NoSuchElementException e) {
                 return Optional.empty();
             }
         }
 
         int size() {
-            return ranges.size();
+            return consumedRanges.size();
         }
 
         synchronized List<ConsumedOffsetRange> getRanges() {
-            return ImmutableList.copyOf(ranges);
+            return ImmutableList.copyOf(consumedRanges);
         }
 
         synchronized Optional<ClosedRange> removeMaximumHeadRange(ClosedRange processedRange) {
-            if (ranges.isEmpty()) {
+            if (consumedRanges.isEmpty()) {
                 return Optional.empty();
             }
 
-            ConsumedOffsetRange firstConsumedRange = ranges.getFirst();
-            if (firstConsumedRange.getRange().lowerEndpoint() == processedRange.lowerEndpoint()) {
-                Iterator<ConsumedOffsetRange> it = ranges.iterator();
-                ConsumedOffsetRange consumedRange = null;
-                Long lastFullyRemovedUpperEndpoint = null;
-                while (it.hasNext()) {
-                    ConsumedOffsetRange prevRange = consumedRange;
-                    consumedRange = it.next();
-
-                    if (consumedRange.getRange().upperEndpoint() <= processedRange.upperEndpoint()) {
-                        if (prevRange != null) {
-                            checkState(prevRange.getRange().upperEndpoint() + 1 == consumedRange.getRange().lowerEndpoint());
-                        }
-                        it.remove();
-                        lastFullyRemovedUpperEndpoint = consumedRange.getRange().upperEndpoint();
-                    } else {
-                        break;
-                    }
-                }
-                checkState(consumedRange != null);
-
-                if (consumedRange.getRange().lowerEndpoint() <= processedRange.upperEndpoint()
-                        && processedRange.upperEndpoint() < consumedRange.getRange().upperEndpoint()) {
-                    // part of consumedRange under iterator has to be removed
-                    it.remove();
-                    // thus we add back its reminder
-                    ranges.addFirst(consumedRange.shrinkFromLeft(processedRange.upperEndpoint() + 1));
-                    return Optional.of(range(processedRange.lowerEndpoint(), processedRange.upperEndpoint()));
-                } else if (lastFullyRemovedUpperEndpoint != null) {
-                    return Optional.of(range(processedRange.lowerEndpoint(), lastFullyRemovedUpperEndpoint));
-                } else {
-                    return Optional.empty();
-                }
-
+            ConsumedOffsetRange firstConsumedRange = consumedRanges.getFirst();
+            if (firstConsumedRange.lowerEndpoint() == processedRange.lowerEndpoint()) {
+                Optional<Long> maxRemovedOffset = doRemoveElementsLowerOrEqual(processedRange.upperEndpoint());
+                return maxRemovedOffset
+                        .map(offset -> range(processedRange.lowerEndpoint(), offset));
             } else {
-                // TODO: not sure if this checkState should be always true
-//                checkState(firstConsumedRange.getRange().lowerEndpoint() < processedRange.lowerEndpoint());
+                checkState(firstConsumedRange.lowerEndpoint() < processedRange.lowerEndpoint());
                 return Optional.empty();
             }
         }
+
+        private Optional<Long> doRemoveElementsLowerOrEqual(long maxOffset) {
+            Iterator<ConsumedOffsetRange> it = consumedRanges.iterator();
+            Long maxRemoved = null;
+            ConsumedOffsetRange range = null;
+            while (it.hasNext()) {
+                range = it.next();
+                if (range.upperEndpoint() <= maxOffset) {
+                    it.remove();
+                    maxRemoved = range.upperEndpoint();
+                } else {
+                    break;
+                }
+            }
+
+            if (range != null && range.lowerEndpoint() <= maxOffset && maxOffset < range.upperEndpoint()) {
+                it.remove();
+                consumedRanges.addFirst(range.shrinkFromLeft(maxOffset + 1));
+                maxRemoved = maxOffset;
+            }
+
+            return Optional.ofNullable(maxRemoved);
+        }
+
+        boolean removeElementsLowerOrEqual(long maxOffset) {
+            return doRemoveElementsLowerOrEqual(maxOffset).isPresent();
+        }
     }
 
-    //TODO: add lowerEndpoint and upperEndpoint methods or add a common interface for closed ranges in order to remove getRange method
-    private static class ConsumedOffsetRange {
+    private static class ConsumedOffsetRange implements ClosedRange {
         private final ClosedRange range;
         private final Instant consumedAt;
 
@@ -515,11 +518,7 @@ public class DefaultOffsetsState implements OffsetsState {
             this.consumedAt = consumedAt;
         }
 
-        public ClosedRange getRange() {
-            return range;
-        }
-
-        public Instant getConsumedAt() {
+        Instant getConsumedAt() {
             return consumedAt;
         }
 
@@ -531,13 +530,28 @@ public class DefaultOffsetsState implements OffsetsState {
                     '}';
         }
 
+        @Override
+        public long lowerEndpoint() {
+            return range.lowerEndpoint();
+        }
+
+        @Override
+        public long upperEndpoint() {
+            return range.upperEndpoint();
+        }
+
         public long size() {
             return range.size();
         }
 
-        public ConsumedOffsetRange shrinkFromLeft(long newLowerEndpoint) {
+        ConsumedOffsetRange shrinkFromLeft(long newLowerEndpoint) {
             checkArgument(newLowerEndpoint >= range.lowerEndpoint());
-            return new ConsumedOffsetRange(ClosedRange.range(newLowerEndpoint, range.upperEndpoint()), consumedAt);
+            return new ConsumedOffsetRange(range(newLowerEndpoint, range.upperEndpoint()), consumedAt);
+        }
+
+        @Override
+        public Iterator<Long> iterator() {
+            return range.iterator();
         }
     }
 
