@@ -146,15 +146,13 @@ public class SortedRanges extends AbstractCollection<ClosedRange> {
         return remove(singleElementRange(element));
     }
 
-    public synchronized boolean removeElementsLowerOrEqual(long maxElement) {
+    public synchronized void removeElementsLowerOrEqual(long maxElement) {
         Iterator<ClosedRange> it = ranges.iterator();
-        boolean removed = false;
         ClosedRange range = null;
         while (it.hasNext()) {
             range = it.next();
             if (range.upperEndpoint() <= maxElement) {
                 it.remove();
-                removed = true;
             } else {
                 break;
             }
@@ -163,9 +161,6 @@ public class SortedRanges extends AbstractCollection<ClosedRange> {
         if (range != null && range.lowerEndpoint() <= maxElement && maxElement < range.upperEndpoint()) {
             it.remove();
             add(ClosedRange.range(maxElement + 1, range.upperEndpoint()));
-            return true;
-        } else {
-            return removed;
         }
     }
 

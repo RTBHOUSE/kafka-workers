@@ -272,6 +272,7 @@ public class DefaultOffsetsState implements OffsetsState {
             synchronized (processedOffsets) {
                 for (ClosedRange processedOffset : processedOffsets) {
                     Optional<ClosedRange> removed = consumedOffsets.removeMaximumHeadRange(processedOffset);
+
                     if (removed.isEmpty() || removed.get().upperEndpoint() < processedOffset.upperEndpoint()) {
                         break;
                     }
@@ -296,14 +297,9 @@ public class DefaultOffsetsState implements OffsetsState {
             return;
         }
 
-        //TODO: remove
-//        removeProcessedOffsetsFromHeadConsumedOffsets(consumedOffsets, processedOffsets);
-
         long maxOffsetToRemove = offsetAndMetadata.offset() - 1;
-        boolean removed = consumedOffsets.removeElementsLowerOrEqual(maxOffsetToRemove);
-        checkState(removed, "Cannot remove consumed offsets up to last committed offset [%s]", maxOffsetToRemove);
-        removed = processedOffsets.removeElementsLowerOrEqual(maxOffsetToRemove);
-        checkState(removed, "Cannot remove processed offsets up to last committed offset [%s]", maxOffsetToRemove);
+        consumedOffsets.removeElementsLowerOrEqual(maxOffsetToRemove);
+        processedOffsets.removeElementsLowerOrEqual(maxOffsetToRemove);
     }
 
     public class TopicPartitionMetricInfo {
@@ -433,16 +429,6 @@ public class DefaultOffsetsState implements OffsetsState {
             consumedRanges.addLast(range);
         }
 
-        synchronized Instant getConsumedAt(long offset) {
-            while (!consumedRanges.isEmpty() && consumedRanges.peekFirst().upperEndpoint() < offset) {
-                consumedRanges.pollFirst();
-            }
-
-            checkState(!consumedRanges.isEmpty() && consumedRanges.peekFirst().contains(offset), "cannot find a range containing offset [%s] in consumed ranges", offset);
-
-            return consumedRanges.peekFirst().getConsumedAt();
-        }
-
         synchronized boolean contains(long offset) {
             return floor(singleElementRange(offset))
                     .map(range -> offset <= range.upperEndpoint())
@@ -476,7 +462,6 @@ public class DefaultOffsetsState implements OffsetsState {
                 return maxRemovedOffset
                         .map(offset -> range(processedRange.lowerEndpoint(), offset));
             } else {
-                checkState(firstConsumedRange.lowerEndpoint() < processedRange.lowerEndpoint());
                 return Optional.empty();
             }
         }
@@ -504,8 +489,8 @@ public class DefaultOffsetsState implements OffsetsState {
             return Optional.ofNullable(maxRemoved);
         }
 
-        boolean removeElementsLowerOrEqual(long maxOffset) {
-            return doRemoveElementsLowerOrEqual(maxOffset).isPresent();
+        void removeElementsLowerOrEqual(long maxOffset) {
+            doRemoveElementsLowerOrEqual(maxOffset);
         }
     }
 

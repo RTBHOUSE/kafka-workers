@@ -7,7 +7,7 @@
     <packaging>jar</packaging>
 
     <name>kafka-workers</name>
-    <version>1.0.12.29-SNAPSHOT</version>
+    <version>1.0.12.31-SNAPSHOT</version>
     <url>https://github.com/RTBHOUSE/kafka-workers</url>
 
     <description>Kafka's client library.</description>
