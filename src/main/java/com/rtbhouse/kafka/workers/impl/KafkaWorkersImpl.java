@@ -22,9 +22,7 @@ import com.rtbhouse.kafka.workers.api.task.WorkerTaskFactory;
 import com.rtbhouse.kafka.workers.impl.consumer.ConsumerThread;
 import com.rtbhouse.kafka.workers.impl.errors.BadStatusException;
 import com.rtbhouse.kafka.workers.impl.metrics.WorkersMetrics;
-import com.rtbhouse.kafka.workers.impl.offsets.ComparingOffsetsState;
 import com.rtbhouse.kafka.workers.impl.offsets.DefaultOffsetsState;
-import com.rtbhouse.kafka.workers.impl.offsets.HeavyOffsetsState;
 import com.rtbhouse.kafka.workers.impl.offsets.OffsetsState;
 import com.rtbhouse.kafka.workers.impl.partitioner.SubpartitionSupplier;
 import com.rtbhouse.kafka.workers.impl.punctuator.PunctuatorThread;
@@ -73,10 +71,7 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
         this.taskFactory = taskFactory;
         this.subpartitionSupplier = new SubpartitionSupplier<>(partitioner);
         this.callback = callback;
-        this.offsetsState = new ComparingOffsetsState(
-                new DefaultOffsetsState(config, metrics),
-                new HeavyOffsetsState()
-        );
+        this.offsetsState = new DefaultOffsetsState(config, metrics);
     }
 
     public void start() {

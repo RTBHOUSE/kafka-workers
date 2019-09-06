@@ -270,8 +270,7 @@ public abstract class OffsetsStateTest {
 
     //TODO: NEXT
 
-    // ten test to może być klucz do różnic wykrytych w logach
-    // TAK: jeśli są różnice między Heavy a Default to wartości Heavy są zawsze większe
+    //TODO: add null test cases here
     private Object[] parametersForShouldReturnOffsetToCommit() {
         return $(
                 $(List.of(range(0L, 5L), range(10L, 15L)), List.of(range(0L, 3L)), 0L, 3L),
