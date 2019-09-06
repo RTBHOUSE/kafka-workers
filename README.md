@@ -1,3 +1,5 @@
+![build status](https://api.travis-ci.org/RTBHOUSE/kafka-workers.svg?branch=master)
+
 # kafka-workers
 
 Kafka Workers is a client library which unifies records consuming from Kafka and processing them by user-defined WorkerTasks. It provides:
@@ -19,7 +21,7 @@ You need Java 11 and at least Apache Kafka 2.0 to use this library.
 
 ## Installation
 
-Releases are distributed on [Maven central](https://mvnrepository.com/artifact/com.rtbhouse/kafka-workers):
+Releases are distributed on [mvn repository](https://mvnrepository.com/artifact/com.rtbhouse/kafka-workers):
 
 ```xml
 <dependency>
@@ -253,3 +255,9 @@ Usage example:
 Internally one Kafka Workers instance launches one consumer thread, one punctuator thread and configurable count of worker threads. Each thread can execute one or more WorkerTasks and each WorkerTask processes WorkerRecords from internal queue associated with given WorkerSubpartition. Kafka Workers ensures by its offsets state that only continuously processed offsets are commited. 
 
 ![Kafka Workers Architecture](docs/workers-arch.png)
+
+## Use cases
+
+At RTB House we use Kafka Workers for all components in our processing infrastructure. For more details please check out our techblog page: [Our real-time data processing - part 1](https://techblog.rtbhouse.com/2017/06/15/data-flow-part1) and [Our real-time data processing - part 2](https://https://techblog.rtbhouse.com/2018/12/10/data-flow-part2).
+
+
