@@ -258,6 +258,7 @@ Internally one Kafka Workers instance launches one consumer thread, one punctuat
 
 ## Use cases
 
-At RTB House we use Kafka Workers for all components in our processing infrastructure. For more details please check out our techblog page: [Our real-time data processing - part 1](https://techblog.rtbhouse.com/2017/06/15/data-flow-part1) and [Our real-time data processing - part 2](https://https://techblog.rtbhouse.com/2018/12/10/data-flow-part2).
+At RTB House we use Kafka Workers for all components in our processing infrastructure. For more details please check out our techblog page: [Our real-time data processing - part 1](https://techblog.rtbhouse.com/2017/06/15/data-flow-part1) and [Our real-time data processing - part 2](https://techblog.rtbhouse.com/2018/12/10/data-flow-part2). So far we have adopted Kafka Workers to our merger, stats-counter and data-flow components but also to BigQuery, HDFS, Elasticsearch and Aerospike streaming writers.
+
 
 
