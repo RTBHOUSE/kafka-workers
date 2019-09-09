@@ -73,10 +73,11 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
         this.taskFactory = taskFactory;
         this.subpartitionSupplier = new SubpartitionSupplier<>(partitioner);
         this.callback = callback;
-        this.offsetsState = new ComparingOffsetsState(
-                new DefaultOffsetsState(config, metrics),
-                new HeavyOffsetsState()
-        );
+        this.offsetsState = Boolean.parseBoolean((String) config.originals().getOrDefault("offsets-state.compare.with.heavy.impl", "false"))
+                ? new ComparingOffsetsState(
+                        new DefaultOffsetsState(config, metrics),
+                        new HeavyOffsetsState())
+                : new DefaultOffsetsState(config, metrics);
     }
 
     public void start() {
