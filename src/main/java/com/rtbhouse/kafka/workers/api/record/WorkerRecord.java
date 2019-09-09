@@ -6,6 +6,8 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.header.Headers;
 
+import com.rtbhouse.kafka.workers.api.partitioner.WorkerSubpartition;
+
 public class WorkerRecord<K, V> {
 
     private final ConsumerRecord<K, V> record;
@@ -14,6 +16,10 @@ public class WorkerRecord<K, V> {
     public WorkerRecord(ConsumerRecord<K, V> record, int subpartition) {
         this.record = record;
         this.subpartition = subpartition;
+    }
+
+    public WorkerSubpartition workerSubpartition() {
+        return WorkerSubpartition.getInstance(record.topic(), record.partition(), subpartition);
     }
 
     public TopicPartition topicPartition() {

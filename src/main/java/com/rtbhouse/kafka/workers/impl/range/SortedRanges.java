@@ -70,6 +70,9 @@ public class SortedRanges extends AbstractCollection<ClosedRange> {
 
     public boolean containsSingleElement(long element) {
         ClosedRange enclosingRange = ranges.floor(singleElementRange(element));
+        if (enclosingRange != null && element <= enclosingRange.upperEndpoint()) {
+            logger.debug("enclosingRange for [{}] is {} (contains: {})", element, enclosingRange, enclosingRange.contains(element));
+        }
         return enclosingRange != null && element <= enclosingRange.upperEndpoint();
     }
 

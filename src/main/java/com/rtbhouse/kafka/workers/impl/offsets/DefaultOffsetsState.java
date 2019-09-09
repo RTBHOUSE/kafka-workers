@@ -22,6 +22,7 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
@@ -37,6 +38,7 @@ import com.rtbhouse.kafka.workers.impl.errors.BadOffsetException;
 import com.rtbhouse.kafka.workers.impl.errors.ProcessingTimeoutException;
 import com.rtbhouse.kafka.workers.impl.metrics.WorkersMetrics;
 import com.rtbhouse.kafka.workers.impl.range.ClosedRange;
+import com.rtbhouse.kafka.workers.impl.range.RangeUtils;
 import com.rtbhouse.kafka.workers.impl.range.SortedRanges;
 
 public class DefaultOffsetsState implements OffsetsState {
@@ -151,6 +153,14 @@ public class DefaultOffsetsState implements OffsetsState {
         }
 
         if (processedOffsets.containsSingleElement(offset)) {
+            logger.debug("Processed offsets for partition [{}] contains {}: {}", partition, offset,
+                    processedOffsets.stream().flatMapToLong(RangeUtils::elementsStream).sorted().boxed().collect(Collectors.toList()));
+            //TODO: remove sleep (waiting for logs)
+            try {
+                Thread.sleep(10_000L);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
             throw new BadOffsetException("Offset: " + offset + " for partition: " + partition + " was processed before");
         }
 
