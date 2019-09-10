@@ -75,6 +75,7 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
         this.subpartitionSupplier = new SubpartitionSupplier<>(partitioner);
         this.callback = callback;
         this.offsetsState = createOffsetsState(this.config, this.metrics);
+        logger.info("OffsetsState implementation: {}", this.offsetsState.getClass().getName());
     }
 
     private static OffsetsState createOffsetsState(WorkersConfig config, WorkersMetrics metrics) {

@@ -16,14 +16,13 @@ import java.util.TreeSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-//TODO: check which methods need to be synchronized
 public class SortedRanges extends AbstractCollection<ClosedRange> {
 
     private static final Logger logger = LoggerFactory.getLogger(SortedRanges.class);
 
     private NavigableSet<ClosedRange> ranges = new TreeSet<>(Comparator.comparingLong(ClosedRange::lowerEndpoint));
 
-    public Optional<ClosedRange> getFirst() {
+    public synchronized Optional<ClosedRange> getFirst() {
         try {
             return Optional.of(ranges.first());
         } catch (NoSuchElementException e) {
@@ -31,7 +30,7 @@ public class SortedRanges extends AbstractCollection<ClosedRange> {
         }
     }
 
-    public Optional<ClosedRange> getLast() {
+    public synchronized Optional<ClosedRange> getLast() {
         try {
             return Optional.of(ranges.last());
         } catch (NoSuchElementException e) {
@@ -40,7 +39,7 @@ public class SortedRanges extends AbstractCollection<ClosedRange> {
     }
 
     @Override
-    public int size() {
+    public synchronized int size() {
         return ranges.size();
     }
 
@@ -64,11 +63,11 @@ public class SortedRanges extends AbstractCollection<ClosedRange> {
     }
 
     @Override
-    public boolean contains(Object range) {
+    public synchronized boolean contains(Object range) {
         return ranges.contains(range);
     }
 
-    public boolean containsSingleElement(long element) {
+    public synchronized boolean containsSingleElement(long element) {
         ClosedRange enclosingRange = ranges.floor(singleElementRange(element));
         if (enclosingRange != null && element <= enclosingRange.upperEndpoint()) {
             logger.debug("enclosingRange for [{}] is {} (contains: {})", element, enclosingRange, enclosingRange.contains(element));
