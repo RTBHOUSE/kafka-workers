@@ -26,6 +26,7 @@ import com.rtbhouse.kafka.workers.impl.offsets.ComparingOffsetsState;
 import com.rtbhouse.kafka.workers.impl.offsets.DefaultOffsetsState;
 import com.rtbhouse.kafka.workers.impl.offsets.HeavyOffsetsState;
 import com.rtbhouse.kafka.workers.impl.offsets.OffsetsState;
+import com.rtbhouse.kafka.workers.impl.offsets.SynchronizedOffsetsState;
 import com.rtbhouse.kafka.workers.impl.partitioner.SubpartitionSupplier;
 import com.rtbhouse.kafka.workers.impl.punctuator.PunctuatorThread;
 import com.rtbhouse.kafka.workers.impl.queues.QueuesManager;
@@ -73,11 +74,21 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
         this.taskFactory = taskFactory;
         this.subpartitionSupplier = new SubpartitionSupplier<>(partitioner);
         this.callback = callback;
-        this.offsetsState = Boolean.parseBoolean((String) config.originals().getOrDefault("offsets-state.compare.with.heavy.impl", "false"))
-                ? new ComparingOffsetsState(
-                        new DefaultOffsetsState(config, metrics),
-                        new HeavyOffsetsState())
-                : new DefaultOffsetsState(config, metrics);
+        this.offsetsState = createOffsetsState(this.config, this.metrics);
+    }
+
+    private static OffsetsState createOffsetsState(WorkersConfig config, WorkersMetrics metrics) {
+        if (Boolean.parseBoolean((String) config.originals().getOrDefault("offsets-state.use.synchronized.impl", "false"))) {
+            return new SynchronizedOffsetsState(new DefaultOffsetsState(config, metrics));
+        }
+        if (Boolean.parseBoolean((String) config.originals().getOrDefault("offsets-state.compare.with.heavy.impl", "false"))) {
+            return new ComparingOffsetsState(
+                    new DefaultOffsetsState(config, metrics),
+                    new HeavyOffsetsState()
+            );
+        }
+
+        return new DefaultOffsetsState(config, metrics);
     }
 
     public void start() {
