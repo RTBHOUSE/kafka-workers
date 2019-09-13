@@ -72,6 +72,7 @@ public class ConsumerThread<K, V> extends AbstractWorkersThread implements Parti
 
     @Override
     public void init() {
+        metrics.addConsumerThreadMetrics();
         consumer.subscribe(config.getList(WorkersConfig.CONSUMER_TOPICS), listener);
     }
 
@@ -91,11 +92,16 @@ public class ConsumerThread<K, V> extends AbstractWorkersThread implements Parti
 
         addConsumedRanges(records);
 
+        long pollRecordsTotalSize = 0L;
         for (ConsumerRecord<K, V> record : records) {
             WorkerSubpartition subpartition = subpartitionSupplier.subpartition(record);
-            queuesManager.push(subpartition, new WorkerRecord<>(record, subpartition.subpartition()));
-            metrics.recordSensor(WorkersMetrics.CONSUMED_OFFSET_METRIC, subpartition.topicPartition(), record.offset());
+            WorkerRecord<K, V> workerRecord = new WorkerRecord<>(record, subpartition.subpartition());
+            queuesManager.push(subpartition, workerRecord);
+            pollRecordsTotalSize += workerRecord.size();
+            updateInputRecordMetrics(workerRecord);
         }
+        metrics.recordSensor(WorkersMetrics.KAFKA_POLL_RECORDS_COUNT_SENSOR, records.count());
+        metrics.recordSensor(WorkersMetrics.KAFKA_POLL_RECORDS_SIZE_SENSOR, pollRecordsTotalSize);
 
         Set<TopicPartition> partitionsToPause = queuesManager.getPartitionsToPause(consumer.assignment(),
                 consumer.paused());
@@ -119,6 +125,11 @@ public class ConsumerThread<K, V> extends AbstractWorkersThread implements Parti
         if (shouldCommitNow()) {
             commitAsync();
         }
+    }
+
+    private void updateInputRecordMetrics(WorkerRecord<K, V> workerRecord) {
+        metrics.recordSensor(WorkersMetrics.CONSUMED_OFFSET_METRIC, workerRecord.topicPartition(), workerRecord.offset());
+        metrics.recordSensor(WorkersMetrics.INPUT_RECORDS_SIZE_SENSOR, workerRecord.size());
     }
 
     private void addConsumedRanges(ConsumerRecords<K, V> records) {
@@ -146,6 +157,7 @@ public class ConsumerThread<K, V> extends AbstractWorkersThread implements Parti
     public void close() {
         commitSync();
         consumer.close();
+        metrics.removeConsumerThreadMetrics();
     }
 
     @Override
@@ -157,7 +169,7 @@ public class ConsumerThread<K, V> extends AbstractWorkersThread implements Parti
     @Override
     public void register(Collection<TopicPartition> topicPartitions) {
         for (TopicPartition partition : topicPartitions) {
-            metrics.addConsumerThreadMetrics(partition);
+            metrics.addConsumerThreadPartitionMetrics(partition);
         }
     }
 
@@ -167,7 +179,7 @@ public class ConsumerThread<K, V> extends AbstractWorkersThread implements Parti
         commitSync();
 
         for (TopicPartition partition : topicPartitions) {
-            metrics.removeConsumerThreadMetrics(partition);
+            metrics.removeConsumerThreadPartitionMetrics(partition);
         }
     }
 

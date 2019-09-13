@@ -61,7 +61,7 @@ public class QueuesManager<K, V> implements Partitioned {
     @Override
     public void unregister(Collection<TopicPartition> topicPartitions) {
         for (WorkerSubpartition subpartition : subpartitionSupplier.subpartitions(topicPartitions)) {
-            metrics.removeSizeMetric(WorkersMetrics.QUEUE_SIZE_METRIC, subpartition.toString());
+            metrics.removeMetric(WorkersMetrics.QUEUE_SIZE_METRIC, subpartition.toString());
             queues.get(subpartition).clear();
             sizesInBytes.put(subpartition, 0L);
         }

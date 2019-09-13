@@ -155,7 +155,7 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
         setStatus(Status.CLOSING);
         logger.info("kafka workers closing");
 
-        metrics.removeSizeMetric(WORKER_THREAD_METRIC_GROUP, WORKER_THREAD_COUNT_METRIC_NAME);
+        metrics.removeMetric(WORKER_THREAD_METRIC_GROUP, WORKER_THREAD_COUNT_METRIC_NAME);
 
         // firstly stop threads processing
         consumerThread.shutdown();
