@@ -125,7 +125,11 @@ public class WorkersMetrics {
     }
 
     public void addSensor(String name, WorkerSubpartition subpartition) {
-        addSensor(name + "." + subpartition);
+        addSensor(nameWithSubpartition(name, subpartition));
+    }
+
+    private String nameWithSubpartition(String name, WorkerSubpartition subpartition) {
+        return String.format("%s.%s.%d", name, subpartition.topicPartition(), subpartition.subpartition());
     }
 
     public void addSensor(String name) {
@@ -138,7 +142,7 @@ public class WorkersMetrics {
     }
 
     public void recordSensor(String name, WorkerSubpartition subpartition, long value) {
-        recordSensor(name + "." + subpartition, value);
+        recordSensor(nameWithSubpartition(name, subpartition), value);
     }
 
     public void recordSensor(String name, long value) {
@@ -150,7 +154,7 @@ public class WorkersMetrics {
     }
 
     public void removeSensor(String name, WorkerSubpartition subpartition) {
-        removeSensor(name + "." + subpartition);
+        removeSensor(nameWithSubpartition(name, subpartition));
     }
 
     public void removeSensor(String name) {
