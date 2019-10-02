@@ -4,8 +4,10 @@ import static com.google.common.base.Preconditions.checkState;
 
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.kafka.clients.CommonClientConfigs;
@@ -18,6 +20,8 @@ import org.apache.kafka.common.config.ConfigDef.Type;
 import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.common.metrics.MetricsReporter;
 
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import com.rtbhouse.kafka.workers.api.partitioner.WorkerSubpartition;
 import com.rtbhouse.kafka.workers.api.record.RecordProcessingGuarantee;
 import com.rtbhouse.kafka.workers.api.task.WorkerTask;
@@ -33,6 +37,8 @@ public class WorkersConfig extends AbstractConfig {
      * Should be used as a prefix for internal {@link KafkaConsumer} configuration used by {@link ConsumerThread}.
      */
     public static final String CONSUMER_PREFIX = "consumer.kafka.";
+
+    public static final String MONITORING_PREFIX = "monitoring.";
 
     /**
      * A list of kafka topics read by {@link ConsumerThread}.
@@ -221,8 +227,33 @@ public class WorkersConfig extends AbstractConfig {
     }
 
     public WorkersConfig(final Map<?, ?> props) {
-        super(CONFIG, props);
+        super(CONFIG, removePrefixAndOverride(props, "kafka.workers."));
         checkConfigFinals(CONSUMER_PREFIX, CONSUMER_CONFIG_FINALS);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<?,?> removePrefixAndOverride(Map<?,?> props, String prefix) {
+        return overridingSum(List.of(
+                propertiesWithoutPrefix(props, prefix),
+                propertiesWithPrefix(props, prefix, true)
+        ));
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> propertiesWithoutPrefix(Map<?,?> props, String prefix) {
+        return (Map<String, Object>) Maps.filterKeys(props, key -> !((String) key).startsWith(prefix));
+    }
+
+    private static Map<String, Object> propertiesWithPrefix(Map<?,?> props, String prefix, boolean removePrefix) {
+        ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
+        props.forEach((key, value) -> {
+            String keyStr = (String) key;
+            if (keyStr.startsWith(prefix)) {
+                String insertKey = removePrefix ? keyStr.substring(prefix.length()) : keyStr;
+                builder.put(insertKey, value);
+            }
+        });
+        return builder.build();
     }
 
     private void checkConfigFinals(String prefix, Map<String, Object> finals) {
@@ -235,7 +266,20 @@ public class WorkersConfig extends AbstractConfig {
     }
 
     public Map<String, Object> getConsumerConfigs() {
-        return getConfigsWithFinals(CONSUMER_PREFIX, CONSUMER_CONFIG_FINALS);
+        return overridingSum(List.of(
+                getMonitoringConfigs(),
+                getConfigsWithFinals(CONSUMER_PREFIX, CONSUMER_CONFIG_FINALS)
+        ));
+    }
+
+    private Map<String, Object> getMonitoringConfigs() {
+        return originalsWithPrefix(MONITORING_PREFIX, false);
+    }
+
+    private static Map<String, Object> overridingSum(Collection<Map<String, Object>> configs) {
+        Map<String, Object> sum = new HashMap<>();
+        configs.forEach(sum::putAll);
+        return ImmutableMap.copyOf(sum);
     }
 
     private Map<String, Object> getConfigsWithFinals(String prefix, Map<String, Object> finals) {
