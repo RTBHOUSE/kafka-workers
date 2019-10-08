@@ -8,7 +8,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
-import com.rtbhouse.kafka.workers.api.record.RecordProcessingGuarantee;
 import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
@@ -20,6 +19,7 @@ import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.common.metrics.MetricsReporter;
 
 import com.rtbhouse.kafka.workers.api.partitioner.WorkerSubpartition;
+import com.rtbhouse.kafka.workers.api.record.RecordProcessingGuarantee;
 import com.rtbhouse.kafka.workers.api.task.WorkerTask;
 import com.rtbhouse.kafka.workers.impl.consumer.ConsumerThread;
 import com.rtbhouse.kafka.workers.impl.task.WorkerThread;
@@ -51,7 +51,8 @@ public class WorkersConfig extends AbstractConfig {
      * The frequency in milliseconds that the processed offsets are committed to Kafka.
      */
     public static final String CONSUMER_COMMIT_INTERVAL_MS = "consumer.commit.interval.ms";
-    private static final String CONSUMER_COMMIT_INTERVAL_MS_DOC = "The frequency in milliseconds that the processed offsets are committed to Kafka.";
+    private static final String CONSUMER_COMMIT_INTERVAL_MS_DOC = "The frequency in milliseconds that the processed offsets are committed" +
+            " to Kafka.";
     private static final long CONSUMER_COMMIT_INTERVAL_MS_DEFAULT = Duration.of(10, ChronoUnit.SECONDS).toMillis();
 
     /**

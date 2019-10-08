@@ -3,6 +3,8 @@ package com.rtbhouse.kafka.workers.integration.utils;
 import java.util.Properties;
 import java.util.concurrent.ThreadLocalRandom;
 
+import org.apache.kafka.common.serialization.BytesDeserializer;
+
 public final class TestProperties {
 
     private static final String KAFKA_HOSTNAME = "127.0.0.1";
@@ -20,6 +22,10 @@ public final class TestProperties {
         serverProperties.put("auto.create.topics.enable", false);
         serverProperties.put("offsets.topic.replication.factor", "1");
         return serverProperties;
+    }
+
+    public static Properties workersProperties() {
+        return workersProperties(BytesDeserializer.class, BytesDeserializer.class, "test-topic");
     }
 
     public static <K, V> Properties workersProperties(Class<K> keyDeserializer, Class<V> valueDeserializer, String... topics) {

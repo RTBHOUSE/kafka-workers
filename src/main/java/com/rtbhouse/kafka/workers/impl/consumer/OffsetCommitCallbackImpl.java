@@ -3,7 +3,6 @@ package com.rtbhouse.kafka.workers.impl.consumer;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import com.rtbhouse.kafka.workers.api.WorkersConfig;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.clients.consumer.OffsetCommitCallback;
 import org.apache.kafka.clients.consumer.RetriableCommitFailedException;
@@ -11,6 +10,7 @@ import org.apache.kafka.common.TopicPartition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.rtbhouse.kafka.workers.api.WorkersConfig;
 import com.rtbhouse.kafka.workers.impl.errors.FailedCommitException;
 import com.rtbhouse.kafka.workers.impl.metrics.WorkersMetrics;
 import com.rtbhouse.kafka.workers.impl.offsets.OffsetsState;

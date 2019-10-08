@@ -1,20 +1,31 @@
 package com.rtbhouse.kafka.workers.impl.metrics;
 
+import static com.google.common.base.Preconditions.checkState;
+import static com.rtbhouse.kafka.workers.impl.offsets.OffsetStatus.CONSUMED;
+import static com.rtbhouse.kafka.workers.impl.offsets.OffsetStatus.PROCESSED;
+
 import java.util.Collection;
 import java.util.List;
+import java.util.stream.Stream;
 
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.metrics.JmxReporter;
-import org.apache.kafka.common.metrics.Measurable;
 import org.apache.kafka.common.metrics.MetricConfig;
 import org.apache.kafka.common.metrics.Metrics;
 import org.apache.kafka.common.metrics.MetricsReporter;
 import org.apache.kafka.common.metrics.Sensor;
+import org.apache.kafka.common.metrics.stats.Avg;
+import org.apache.kafka.common.metrics.stats.Count;
+import org.apache.kafka.common.metrics.stats.Max;
+import org.apache.kafka.common.metrics.stats.Min;
+import org.apache.kafka.common.metrics.stats.Rate;
 import org.apache.kafka.common.metrics.stats.Value;
 import org.apache.kafka.common.utils.Time;
 
+import com.google.common.collect.ImmutableList;
 import com.rtbhouse.kafka.workers.api.WorkersConfig;
 import com.rtbhouse.kafka.workers.api.partitioner.WorkerSubpartition;
+import com.rtbhouse.kafka.workers.impl.offsets.DefaultOffsetsState;
 import com.rtbhouse.kafka.workers.impl.task.WorkerThread;
 
 public class WorkersMetrics {
@@ -24,6 +35,10 @@ public class WorkersMetrics {
     public static final String PAUSED_PARTITIONS_METRIC = "consumer-thread.paused-partitions";
     public static final String CONSUMED_OFFSET_METRIC = "consumer-thread.consumed-offset";
     public static final String COMMITTED_OFFSET_METRIC = "consumer-thread.committed-offset";
+
+    public static final String INPUT_RECORDS_SIZE_SENSOR = "consumer-thread.input-records.serialized-size";
+    public static final String KAFKA_POLL_RECORDS_COUNT_SENSOR = "consumer-thread.poll.records.count";
+    public static final String KAFKA_POLL_RECORDS_SIZE_SENSOR = "consumer-thread.poll.records.serialized-size";
 
     public static final String ACCEPTING_OFFSET_METRIC = "worker-thread.accepting-offset";
     public static final String ACCEPTED_OFFSET_METRIC = "worker-thread.accepted-offset";
@@ -36,6 +51,18 @@ public class WorkersMetrics {
     public static final String WORKER_THREAD_COUNT_METRIC_NAME = "count";
     public static final String WORKER_THREAD_TASK_COUNT_METRIC_NAME = "task-count";
 
+    public static final String OFFSETS_CONSUMED_COUNT = "offsets.consumed.count";
+    public static final String OFFSETS_PROCESSED_COUNT = "offsets.processed.count";
+    public static final String OFFSET_RANGES_CONSUMED_COUNT = "offset-ranges.consumed.count";
+    public static final String OFFSET_RANGES_PROCESSED_COUNT = "offset-ranges.processed.count";
+
+    private static final List<String> ALL_OFFSETS_STATE_METRIC_NAMES = ImmutableList.of(
+            OFFSETS_CONSUMED_COUNT,
+            OFFSETS_PROCESSED_COUNT,
+            OFFSET_RANGES_CONSUMED_COUNT,
+            OFFSET_RANGES_PROCESSED_COUNT
+    );
+
     private final Metrics metrics;
 
     public WorkersMetrics(WorkersConfig config) {
@@ -44,13 +71,36 @@ public class WorkersMetrics {
         this.metrics = new Metrics(new MetricConfig(), reporters, Time.SYSTEM);
     }
 
-    public void addConsumerThreadMetrics(TopicPartition partition) {
+    public void addConsumerThreadMetrics() {
+        Stream.of(
+                metrics.sensor(INPUT_RECORDS_SIZE_SENSOR),
+                metrics.sensor(KAFKA_POLL_RECORDS_COUNT_SENSOR),
+                metrics.sensor(KAFKA_POLL_RECORDS_SIZE_SENSOR)
+        ).forEach(
+                sensor -> {
+                    checkState(sensor.add(metrics.metricName("min", sensor.name()), new Min()));
+                    checkState(sensor.add(metrics.metricName("max", sensor.name()), new Max()));
+                    checkState(sensor.add(metrics.metricName("avg", sensor.name()), new Avg()));
+                    checkState(sensor.add(metrics.metricName("count-per-sec", sensor.name()), new Rate(new Count())));
+                }
+        );
+    }
+
+    public void removeConsumerThreadMetrics() {
+        Stream.of(
+                INPUT_RECORDS_SIZE_SENSOR,
+                KAFKA_POLL_RECORDS_COUNT_SENSOR,
+                KAFKA_POLL_RECORDS_SIZE_SENSOR
+        ).forEach(metrics::removeSensor);
+    }
+
+    public void addConsumerThreadPartitionMetrics(TopicPartition partition) {
         addSensor(PAUSED_PARTITIONS_METRIC, partition);
         addSensor(CONSUMED_OFFSET_METRIC, partition);
         addSensor(COMMITTED_OFFSET_METRIC, partition);
     }
 
-    public void removeConsumerThreadMetrics(TopicPartition partition) {
+    public void removeConsumerThreadPartitionMetrics(TopicPartition partition) {
         removeSensor(PAUSED_PARTITIONS_METRIC, partition);
         removeSensor(CONSUMED_OFFSET_METRIC, partition);
         removeSensor(COMMITTED_OFFSET_METRIC, partition);
@@ -75,7 +125,11 @@ public class WorkersMetrics {
     }
 
     public void addSensor(String name, WorkerSubpartition subpartition) {
-        addSensor(name + "." + subpartition);
+        addSensor(nameWithSubpartition(name, subpartition));
+    }
+
+    private String nameWithSubpartition(String name, WorkerSubpartition subpartition) {
+        return String.format("%s.%s.%d", name, subpartition.topicPartition(), subpartition.subpartition());
     }
 
     public void addSensor(String name) {
@@ -88,7 +142,7 @@ public class WorkersMetrics {
     }
 
     public void recordSensor(String name, WorkerSubpartition subpartition, long value) {
-        recordSensor(name + "." + subpartition, value);
+        recordSensor(nameWithSubpartition(name, subpartition), value);
     }
 
     public void recordSensor(String name, long value) {
@@ -100,7 +154,7 @@ public class WorkersMetrics {
     }
 
     public void removeSensor(String name, WorkerSubpartition subpartition) {
-        removeSensor(name + "." + subpartition);
+        removeSensor(nameWithSubpartition(name, subpartition));
     }
 
     public void removeSensor(String name) {
@@ -112,7 +166,7 @@ public class WorkersMetrics {
                 (config, now) -> collection.size());
     }
 
-    public void removeSizeMetric(String group, String name) {
+    public void removeMetric(String group, String name) {
         metrics.removeMetric(metrics.metricName(name, group));
     }
 
@@ -133,4 +187,49 @@ public class WorkersMetrics {
         metrics.removeMetric(metrics.metricName(WORKER_THREAD_TASK_COUNT_METRIC_NAME, group));
     }
 
+    public void addOffsetsStateCurrentMetrics(DefaultOffsetsState offsetsState, TopicPartition partition) {
+        String group = offsetsStateCurrInfosPartitionGroup(partition);
+
+        metrics.addMetric(metrics.metricName(OFFSETS_CONSUMED_COUNT, group),
+                (config, now) -> offsetsState.getCurrMetricInfo(partition).getOffsetStatusCount(CONSUMED));
+        metrics.addMetric(metrics.metricName(OFFSETS_PROCESSED_COUNT, group),
+                (config, now) -> offsetsState.getCurrMetricInfo(partition).getOffsetStatusCount(PROCESSED));
+
+        metrics.addMetric(metrics.metricName(OFFSET_RANGES_CONSUMED_COUNT, group),
+                (config, now) -> offsetsState.getCurrMetricInfo(partition).getOffsetRangesStatusCount(CONSUMED));
+        metrics.addMetric(metrics.metricName(OFFSET_RANGES_PROCESSED_COUNT, group),
+                (config, now) -> offsetsState.getCurrMetricInfo(partition).getOffsetRangesStatusCount(PROCESSED));
+    }
+
+    private String offsetsStateCurrInfosPartitionGroup(TopicPartition partition) {
+        return "offsets-state.curr-infos." + partition;
+    }
+
+    public void removeOffsetsStateCurrentMetrics(TopicPartition partition) {
+        String group = offsetsStateCurrInfosPartitionGroup(partition);
+        ALL_OFFSETS_STATE_METRIC_NAMES.forEach(name -> metrics.removeMetric(metrics.metricName(name, group)));
+    }
+
+    public void addOffsetsStateMaxMetrics(DefaultOffsetsState offsetsState, TopicPartition partition) {
+        String group = offsetsStateMaxPartitionGroup(partition);
+
+        metrics.addMetric(metrics.metricName(OFFSETS_CONSUMED_COUNT, group),
+                (config, now) -> offsetsState.getMaxMetricInfo(partition).getOffsetStatusCount(CONSUMED));
+        metrics.addMetric(metrics.metricName(OFFSETS_PROCESSED_COUNT, group),
+                (config, now) -> offsetsState.getMaxMetricInfo(partition).getOffsetStatusCount(PROCESSED));
+
+        metrics.addMetric(metrics.metricName(OFFSET_RANGES_CONSUMED_COUNT, group),
+                (config, now) -> offsetsState.getMaxMetricInfo(partition).getOffsetRangesStatusCount(CONSUMED));
+        metrics.addMetric(metrics.metricName(OFFSET_RANGES_PROCESSED_COUNT, group),
+                (config, now) -> offsetsState.getMaxMetricInfo(partition).getOffsetRangesStatusCount(PROCESSED));
+    }
+
+    private String offsetsStateMaxPartitionGroup(TopicPartition partition) {
+        return "offsets-state.max-ranges." + partition;
+    }
+
+    public void removeOffsetsStateMaxMetrics(TopicPartition partition) {
+        String group = offsetsStateMaxPartitionGroup(partition);
+        ALL_OFFSETS_STATE_METRIC_NAMES.forEach(name -> metrics.removeMetric(metrics.metricName(name, group)));
+    }
 }

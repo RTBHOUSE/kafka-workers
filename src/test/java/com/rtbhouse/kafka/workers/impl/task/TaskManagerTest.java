@@ -45,7 +45,7 @@ public class TaskManagerTest {
     private KafkaWorkersImpl<byte[], byte[]> workers;
 
     @Mock
-    private OffsetsState offsetsState;
+    private OffsetsState offsetsStateInterface;
 
     @Mock
     private QueuesManager<byte[], byte[]> queueManager;
@@ -64,7 +64,7 @@ public class TaskManagerTest {
         TaskManager<byte[], byte[]> taskManager = new TaskManager<>(config, metrics, taskFactory, subpartitionSupplier, threads);
 
         for (int i = 0; i < WORKER_THREADS_NUM; i++) {
-            threads.add(new WorkerThread<>(i, config, metrics, workers, taskManager, queueManager, offsetsState));
+            threads.add(new WorkerThread<>(i, config, metrics, workers, taskManager, queueManager, offsetsStateInterface));
         }
         ExecutorService executorService = Executors.newFixedThreadPool(WORKER_THREADS_NUM);
         for (WorkerThread<byte[], byte[]> workerThread : threads) {

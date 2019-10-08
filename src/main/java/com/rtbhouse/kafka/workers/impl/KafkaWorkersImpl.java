@@ -10,7 +10,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-import com.rtbhouse.kafka.workers.impl.punctuator.PunctuatorThread;
 import org.apache.kafka.common.TopicPartition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,8 +22,10 @@ import com.rtbhouse.kafka.workers.api.task.WorkerTaskFactory;
 import com.rtbhouse.kafka.workers.impl.consumer.ConsumerThread;
 import com.rtbhouse.kafka.workers.impl.errors.BadStatusException;
 import com.rtbhouse.kafka.workers.impl.metrics.WorkersMetrics;
+import com.rtbhouse.kafka.workers.impl.offsets.DefaultOffsetsState;
 import com.rtbhouse.kafka.workers.impl.offsets.OffsetsState;
 import com.rtbhouse.kafka.workers.impl.partitioner.SubpartitionSupplier;
+import com.rtbhouse.kafka.workers.impl.punctuator.PunctuatorThread;
 import com.rtbhouse.kafka.workers.impl.queues.QueuesManager;
 import com.rtbhouse.kafka.workers.impl.task.TaskManager;
 import com.rtbhouse.kafka.workers.impl.task.WorkerThread;
@@ -70,7 +71,7 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
         this.taskFactory = taskFactory;
         this.subpartitionSupplier = new SubpartitionSupplier<>(partitioner);
         this.callback = callback;
-        this.offsetsState = new OffsetsState();
+        this.offsetsState = new DefaultOffsetsState(this.config, this.metrics);;
     }
 
     public void start() {
@@ -136,7 +137,7 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
         setStatus(Status.CLOSING);
         logger.info("kafka workers closing");
 
-        metrics.removeSizeMetric(WORKER_THREAD_METRIC_GROUP, WORKER_THREAD_COUNT_METRIC_NAME);
+        metrics.removeMetric(WORKER_THREAD_METRIC_GROUP, WORKER_THREAD_COUNT_METRIC_NAME);
 
         // firstly stop threads processing
         consumerThread.shutdown();
