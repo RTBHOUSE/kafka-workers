@@ -51,7 +51,8 @@ public class WorkersConfig extends AbstractConfig {
      * The frequency in milliseconds that the processed offsets are committed to Kafka.
      */
     public static final String CONSUMER_COMMIT_INTERVAL_MS = "consumer.commit.interval.ms";
-    private static final String CONSUMER_COMMIT_INTERVAL_MS_DOC = "The frequency in milliseconds that the processed offsets are committed to Kafka.";
+    private static final String CONSUMER_COMMIT_INTERVAL_MS_DOC = "The frequency in milliseconds that the processed offsets are committed" +
+            " to Kafka.";
     private static final long CONSUMER_COMMIT_INTERVAL_MS_DEFAULT = Duration.of(10, ChronoUnit.SECONDS).toMillis();
 
     /**

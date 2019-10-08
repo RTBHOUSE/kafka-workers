@@ -99,7 +99,9 @@ public abstract class OffsetsStateTest {
                 .hasMessage("Offset: %s for partition: %s was consumed before", minExistingOffset, TOPIC_PARTITION_0);
     }
 
-    private OffsetsState offsetsStateWithConsumedOffsets(Set<TopicPartition> partitions, ClosedRange consumedOffsets, Instant consumedAt) throws InterruptedException {
+    private OffsetsState offsetsStateWithConsumedOffsets(Set<TopicPartition> partitions, ClosedRange consumedOffsets, Instant consumedAt)
+            throws InterruptedException {
+
         Preconditions.checkState(partitions.size() == 1);
         TopicPartition partition = partitions.iterator().next();
         OffsetsState offsetsState = createOffsetsStateSubject();

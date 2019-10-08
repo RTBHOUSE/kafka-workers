@@ -8,7 +8,8 @@ import java.util.function.Function;
 public class CollectionUtils {
 
     /**
-     * Returns the greatest element in this sorted collection with a key less than or equal to the given maxKey, or null if there is no such element.
+     * Returns the greatest element in this sorted collection with a key less than or equal to the given maxKey,
+     * or null if there is no such element.
      * @param K key for comparison
      * @param E elements in sorted collection
      */
@@ -17,7 +18,8 @@ public class CollectionUtils {
     }
 
     /**
-     * Returns the greatest element in this sorted collection with a key less than or equal to the given maxKey, or null if there is no such element.
+     * Returns the greatest element in this sorted collection with a key less than or equal to the given maxKey,
+     * or null if there is no such element.
      * @param K key for comparison
      * @param E elements in sorted collection
      */
@@ -41,7 +43,8 @@ public class CollectionUtils {
     }
 
     /**
-     * Returns the least element in this sorted collection with a key greater than or equal to the given minKey, or null if there is no such element.
+     * Returns the least element in this sorted collection with a key greater than or equal to the given minKey,
+     * or null if there is no such element.
      * @param K key for comparison
      * @param E elements in sorted collection
      */
@@ -50,11 +53,13 @@ public class CollectionUtils {
     }
 
     /**
-     * Returns the least element in this sorted collection with a key greater than or equal to the given minKey, or null if there is no such element.
+     * Returns the least element in this sorted collection with a key greater than or equal to the given minKey,
+     * or null if there is no such element.
      * @param K key for comparison
      * @param E elements in sorted collection
      */
-    public static <K, E> E ceilingBinarySearch(RandomAccess<E> sortedElements, K minKey, Function<E, K> getKey, Comparator<K> keyComparator) {
+    public static <K, E> E ceilingBinarySearch(RandomAccess<E> sortedElements, K minKey, Function<E, K> getKey,
+                                               Comparator<K> keyComparator) {
         int low = 0;
         int high = sortedElements.size()-1;
 

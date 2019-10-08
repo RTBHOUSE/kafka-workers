@@ -54,8 +54,10 @@ public class DefaultOffsetsState implements OffsetsState {
         this.metrics = metrics;
 
         this.metricInfoMaxDelay = Duration.ofMillis(getLongFromConfig(config, "offsets-state.metric-info.delay.ms", 1_000L));
-        this.computeMetricsDurationWarn = Duration.ofMillis(getLongFromConfig(config, "offsets-state.metric-infos.compute.warn.ms", 1_000L));
-        this.lastMetricInfoMaxAge = Duration.ofMillis(getLongFromConfig(config, "offsets-state.last-metric-infos.max.age.ms", 30_000L));
+        this.computeMetricsDurationWarn = Duration.ofMillis(getLongFromConfig(config, "offsets-state.metric-infos.compute.warn.ms",
+                1_000L));
+        this.lastMetricInfoMaxAge = Duration.ofMillis(getLongFromConfig(config, "offsets-state.last-metric-infos.max.age.ms",
+                30_000L));
         this.lastMetricInfosMaxSize = getLongFromConfig(config, "offsets-state.last-metric-infos.max.size", 100L);
         checkState(!metricInfoMaxDelay.isNegative());
         checkState(!computeMetricsDurationWarn.isNegative());
@@ -73,7 +75,8 @@ public class DefaultOffsetsState implements OffsetsState {
     }
 
     public TopicPartitionMetricInfo getMaxMetricInfo(TopicPartition partition) {
-        Deque<TopicPartitionMetricInfo> deque = lastMetricInfos.computeIfAbsent(partition, key -> new ArrayDeque<>(ImmutableList.of(getCurrMetricInfo(key))));
+        Deque<TopicPartitionMetricInfo> deque = lastMetricInfos.computeIfAbsent(partition,
+                key -> new ArrayDeque<>(ImmutableList.of(getCurrMetricInfo(key))));
         synchronized (deque) {
             removeOldMetricInfos(deque);
             return deque.stream().max(this::cmpMetricInfoByNumRanges).orElse(getCurrMetricInfo(partition));
@@ -81,7 +84,8 @@ public class DefaultOffsetsState implements OffsetsState {
     }
 
     private void removeOldMetricInfos(Deque<TopicPartitionMetricInfo> deque) {
-        while (deque.size() > lastMetricInfosMaxSize || (deque.peekFirst() != null && isOlderThan(deque.peekFirst().computedAt, lastMetricInfoMaxAge))) {
+        while (deque.size() > lastMetricInfosMaxSize
+                || (deque.peekFirst() != null && isOlderThan(deque.peekFirst().computedAt, lastMetricInfoMaxAge))) {
             deque.pollFirst();
         }
     }
@@ -121,7 +125,8 @@ public class DefaultOffsetsState implements OffsetsState {
         synchronized (consumedOffsets) {
             Optional<Long> minExistingElement = consumedOffsets.getMinExistingElement(range);
             if (minExistingElement.isPresent()) {
-                throw new BadOffsetException("Offset: " + minExistingElement.get() + " for partition: " + partition + " was consumed before");
+                throw new BadOffsetException("Offset: " + minExistingElement.get() + " for partition: " + partition
+                        + " was consumed before");
             }
             consumedOffsets.addConsumedRange(new ConsumedOffsetRange(range, consumedAt));
         }
@@ -136,11 +141,13 @@ public class DefaultOffsetsState implements OffsetsState {
 
         // unregister() method call may cause consumedOffsets or processedOffsets is null
         if (consumedOffsets == null) {
-            logger.warn("Aborting updateProcessed({}, {}) because consumedOffsets == null (partition probably unregistered)", partition, offset);
+            logger.warn("Aborting updateProcessed({}, {}) because consumedOffsets == null (partition probably unregistered)",
+                    partition, offset);
             return;
         }
         if (processedOffsets == null) {
-            logger.warn("Aborting updateProcessed({}, {}) because processedOffsets == null (partition probably unregistered)", partition, offset);
+            logger.warn("Aborting updateProcessed({}, {}) because processedOffsets == null (partition probably unregistered)",
+                    partition, offset);
             return;
         }
 
@@ -243,7 +250,10 @@ public class DefaultOffsetsState implements OffsetsState {
     }
 
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-    private void checkConsumedOffsetsTimeout(TopicPartition partition, Optional<ConsumedOffsetRange> consumedFirstRange, Instant minConsumedAt) {
+    private void checkConsumedOffsetsTimeout(TopicPartition partition,
+                                             Optional<ConsumedOffsetRange> consumedFirstRange,
+                                             Instant minConsumedAt) {
+
         if (minConsumedAt != null && consumedFirstRange.isPresent()) {
             ConsumedOffsetRange consumedRange = consumedFirstRange.get();
             long minConsumedOffset = consumedRange.lowerEndpoint();

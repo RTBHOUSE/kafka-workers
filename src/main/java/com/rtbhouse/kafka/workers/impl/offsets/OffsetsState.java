@@ -22,7 +22,6 @@ public interface OffsetsState extends Partitioned {
         addConsumed(partition, range, Instant.now());
     }
 
-    //TODO: maybe some buffering should be implemented
     void updateProcessed(TopicPartition partition, long offset);
 
     Map<TopicPartition, OffsetAndMetadata> getOffsetsToCommit(Set<TopicPartition> assignedPartitions, Instant minConsumedAt);

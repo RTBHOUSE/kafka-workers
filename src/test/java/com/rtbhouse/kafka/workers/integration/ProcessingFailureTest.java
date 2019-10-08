@@ -26,7 +26,6 @@ import com.rtbhouse.kafka.workers.api.record.RecordStatusObserver;
 import com.rtbhouse.kafka.workers.api.record.WorkerRecord;
 import com.rtbhouse.kafka.workers.api.task.WorkerTask;
 import com.rtbhouse.kafka.workers.api.task.WorkerTaskFactory;
-import com.rtbhouse.kafka.workers.impl.errors.ProcessingFailureException;
 import com.rtbhouse.kafka.workers.integration.utils.KafkaServerRule;
 import com.rtbhouse.kafka.workers.integration.utils.RequiresKafkaServer;
 import com.rtbhouse.kafka.workers.integration.utils.TestProperties;
