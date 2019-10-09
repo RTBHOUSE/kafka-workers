@@ -52,7 +52,12 @@ import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 /**
- * Resizable-array implementation of the {@link Deque} interface.  Array
+ * NOTE: This class is a copy of java.util.ArrayDeque implementing RandomAccess
+ * interface additionally in order to enable binary search.
+ *
+ * <p>Original javadoc starts here:
+ *
+ * <p>Resizable-array implementation of the {@link Deque} interface.  Array
  * deques have no capacity restrictions; they grow as necessary to support
  * usage.  They are not thread-safe; in the absence of external
  * synchronization, they do not support concurrent access by multiple threads.
@@ -60,7 +65,7 @@ import java.util.function.Predicate;
  * {@link Stack} when used as a stack, and faster than {@link LinkedList}
  * when used as a queue.
  *
- * <p>Most {@code EnhancedArrayDeque} operations run in amortized constant time.
+ * <p>Most {@code RandomAccessArrayDeque} operations run in amortized constant time.
  * Exceptions include
  * {@link #remove(Object) remove},
  * {@link #removeFirstOccurrence removeFirstOccurrence},
@@ -98,7 +103,7 @@ import java.util.function.Predicate;
  * @param <E> the type of elements held in this deque
  * @since   1.6
  */
-public class EnhancedArrayDeque<E> extends AbstractCollection<E>
+public class RandomAccessArrayDeque<E> extends AbstractCollection<E>
         implements Deque<E>, RandomAccess<E>, Cloneable, Serializable
 {
     /*
@@ -190,7 +195,7 @@ public class EnhancedArrayDeque<E> extends AbstractCollection<E>
      * Constructs an empty array deque with an initial capacity
      * sufficient to hold 16 elements.
      */
-    public EnhancedArrayDeque() {
+    public RandomAccessArrayDeque() {
         elements = new Object[16];
     }
 
@@ -200,7 +205,7 @@ public class EnhancedArrayDeque<E> extends AbstractCollection<E>
      *
      * @param numElements lower bound on initial capacity of the deque
      */
-    public EnhancedArrayDeque(int numElements) {
+    public RandomAccessArrayDeque(int numElements) {
         elements =
                 new Object[(numElements < 1) ? 1 :
                         (numElements == Integer.MAX_VALUE) ? Integer.MAX_VALUE :
@@ -217,7 +222,7 @@ public class EnhancedArrayDeque<E> extends AbstractCollection<E>
      * @param c the collection whose elements are to be placed into the deque
      * @throws NullPointerException if the specified collection is null
      */
-    public EnhancedArrayDeque(Collection<? extends E> c) {
+    public RandomAccessArrayDeque(Collection<? extends E> c) {
         this(c.size());
         copyElements(c);
     }
@@ -1164,10 +1169,10 @@ public class EnhancedArrayDeque<E> extends AbstractCollection<E>
      *
      * @return a copy of this deque
      */
-    public EnhancedArrayDeque<E> clone() {
+    public RandomAccessArrayDeque<E> clone() {
         try {
             @SuppressWarnings("unchecked")
-            EnhancedArrayDeque<E> result = (EnhancedArrayDeque<E>) super.clone();
+            RandomAccessArrayDeque<E> result = (RandomAccessArrayDeque<E>) super.clone();
             result.elements = Arrays.copyOf(elements, elements.length);
             return result;
         } catch (CloneNotSupportedException e) {

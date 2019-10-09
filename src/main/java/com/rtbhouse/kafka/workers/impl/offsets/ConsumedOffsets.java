@@ -14,11 +14,11 @@ import java.util.Optional;
 
 import com.google.common.collect.ImmutableList;
 import com.rtbhouse.kafka.workers.impl.collection.CollectionUtils;
-import com.rtbhouse.kafka.workers.impl.collection.EnhancedArrayDeque;
+import com.rtbhouse.kafka.workers.impl.collection.RandomAccessArrayDeque;
 import com.rtbhouse.kafka.workers.impl.range.ClosedRange;
 
 class ConsumedOffsets {
-    private final EnhancedArrayDeque<ConsumedOffsetRange> consumedRanges = new EnhancedArrayDeque<>();
+    private final RandomAccessArrayDeque<ConsumedOffsetRange> consumedRanges = new RandomAccessArrayDeque<>();
 
     synchronized Optional<Long> getMinExistingElement(ClosedRange range) {
         Optional<ConsumedOffsetRange> prevRange = floor(range);
