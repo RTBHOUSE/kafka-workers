@@ -10,8 +10,8 @@ public class CollectionUtils {
     /**
      * Returns the greatest element in this sorted collection with a key less than or equal to the given maxKey,
      * or null if there is no such element.
-     * @param K key for comparison
-     * @param E elements in sorted collection
+     * @param <K> key for comparison
+     * @param <E> elements in sorted collection
      */
     public static <K, E extends K> E floorBinarySearch(RandomAccess<E> sortedElements, K maxKey, Comparator<K> keyComparator) {
         return floorBinarySearch(sortedElements, maxKey, downcastIdentity(), keyComparator);
@@ -20,8 +20,8 @@ public class CollectionUtils {
     /**
      * Returns the greatest element in this sorted collection with a key less than or equal to the given maxKey,
      * or null if there is no such element.
-     * @param K key for comparison
-     * @param E elements in sorted collection
+     * @param <K> key for comparison
+     * @param <E> elements in sorted collection
      */
     public static <K, E> E floorBinarySearch(RandomAccess<E> sortedElements, K maxKey, Function<E, K> getKey, Comparator<K> keyComparator) {
         int low = 0;
@@ -45,8 +45,8 @@ public class CollectionUtils {
     /**
      * Returns the least element in this sorted collection with a key greater than or equal to the given minKey,
      * or null if there is no such element.
-     * @param K key for comparison
-     * @param E elements in sorted collection
+     * @param <K> key for comparison
+     * @param <E> elements in sorted collection
      */
     public static <K, E extends K> E ceilingBinarySearch(RandomAccess<E> sortedElements, K minKey, Comparator<K> keyComparator) {
         return ceilingBinarySearch(sortedElements, minKey, downcastIdentity(), keyComparator);
@@ -55,8 +55,8 @@ public class CollectionUtils {
     /**
      * Returns the least element in this sorted collection with a key greater than or equal to the given minKey,
      * or null if there is no such element.
-     * @param K key for comparison
-     * @param E elements in sorted collection
+     * @param <K> key for comparison
+     * @param <E> elements in sorted collection
      */
     public static <K, E> E ceilingBinarySearch(RandomAccess<E> sortedElements, K minKey, Function<E, K> getKey,
                                                Comparator<K> keyComparator) {

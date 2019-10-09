@@ -1,17 +1,13 @@
 package com.rtbhouse.kafka.workers.api.partitioner;
 
-import static java.util.function.Function.identity;
-
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-
 import org.apache.kafka.common.TopicPartition;
 
+import com.rtbhouse.kafka.workers.impl.cache.UniqueInstancesCache;
 import com.rtbhouse.kafka.workers.impl.pool.TopicPartitionPool;
 
 public class WorkerSubpartition {
 
-    private static final Map<WorkerSubpartition, WorkerSubpartition> INSTANCES = new ConcurrentHashMap<>();
+    private static final UniqueInstancesCache<WorkerSubpartition> INSTANCES = new UniqueInstancesCache<>(64);
 
     private final TopicPartition topicPartition;
     private final int subpartition;
@@ -19,7 +15,7 @@ public class WorkerSubpartition {
     private int hash = 0;
 
     public static WorkerSubpartition getInstance(TopicPartition topicPartition, int subpartition) {
-        return INSTANCES.computeIfAbsent(new WorkerSubpartition(topicPartition, subpartition), identity());
+        return INSTANCES.saveUnique(new WorkerSubpartition(topicPartition, subpartition));
     }
 
     public static WorkerSubpartition getInstance(String topic, int partition, int subpartition) {
