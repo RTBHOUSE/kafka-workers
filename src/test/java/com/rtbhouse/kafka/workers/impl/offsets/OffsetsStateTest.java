@@ -30,6 +30,7 @@ import com.rtbhouse.kafka.workers.api.WorkersConfig;
 import com.rtbhouse.kafka.workers.impl.errors.BadOffsetException;
 import com.rtbhouse.kafka.workers.impl.errors.ProcessingTimeoutException;
 import com.rtbhouse.kafka.workers.impl.metrics.WorkersMetrics;
+import com.rtbhouse.kafka.workers.impl.offsets.ConsumedOffsets.ConsumedOffsetRange;
 import com.rtbhouse.kafka.workers.impl.range.ClosedRange;
 import com.rtbhouse.kafka.workers.impl.range.RangeUtils;
 import com.rtbhouse.kafka.workers.integration.utils.TestProperties;
@@ -262,21 +263,43 @@ public abstract class OffsetsStateTest {
         }).isInstanceOf(BadOffsetException.class).hasMessageContaining("Offset: 2 for partition: topic-0 was processed before");
     }
 
-    @Test
-    public void shouldTimeoutConsumedOffsets() throws InterruptedException {
+    private Object[] parametersForShouldTimeoutConsumedOffsets() {
+        return $(
+                $(List.of(consumedOffsetRange(0L, 0L, epochMilli(10L)), consumedOffsetRange(1L, 1L, epochMilli(15L)), consumedOffsetRange(2L, 2L, epochMilli(20L))), List.of(0L), epochMilli(20L), 1L),
+                $(List.of(consumedOffsetRange(1L, 3L, epochMilli(3L)), consumedOffsetRange(5L, 7L, epochMilli(7L))), List.of(2L, 3L, 5L, 6L, 7L), epochMilli(7L), 1L),
+                $(List.of(consumedOffsetRange(1L, 3L, epochMilli(3L)), consumedOffsetRange(5L, 7L, epochMilli(7L))), List.of(1L), epochMilli(7L), 2L),
+                $(List.of(consumedOffsetRange(1L, 3L, epochMilli(3L)), consumedOffsetRange(5L, 7L, epochMilli(7L))), List.of(2L), epochMilli(7L), 1L),
+                $(List.of(consumedOffsetRange(1L, 3L, epochMilli(3L)), consumedOffsetRange(5L, 7L, epochMilli(7L))), List.of(1L, 2L), epochMilli(7L), 3L),
+                $(List.of(consumedOffsetRange(1L, 3L, epochMilli(3L)), consumedOffsetRange(5L, 7L, epochMilli(7L))), List.of(2L, 3L, 5L, 6L, 7L), epochMilli(7L), 1L),
+                $(List.of(consumedOffsetRange(1L, 3L, epochMilli(3L)), consumedOffsetRange(5L, 7L, epochMilli(7L))), List.of(1L, 2L, 3L), epochMilli(8L), 5L),
+                $(List.of(consumedOffsetRange(1L, 3L, epochMilli(3L)), consumedOffsetRange(5L, 7L, epochMilli(7L))), List.of(1L, 2L, 3L, 6L), epochMilli(8L), 5L),
+                $(List.of(consumedOffsetRange(1L, 3L, epochMilli(3L)), consumedOffsetRange(5L, 7L, epochMilli(7L))), List.of(1L, 2L, 3L, 6L, 7L), epochMilli(8L), 5L),
+                $(List.of(consumedOffsetRange(1L, 3L, epochMilli(3L)), consumedOffsetRange(5L, 7L, epochMilli(7L))), List.of(1L, 2L, 3L, 5L), epochMilli(8L), 6L),
+                $(List.of(consumedOffsetRange(1L, 3L, epochMilli(3L)), consumedOffsetRange(5L, 7L, epochMilli(7L))), List.of(1L, 2L, 3L, 5L, 7L), epochMilli(8L), 6L),
+                $(List.of(consumedOffsetRange(1L, 3L, epochMilli(3L)), consumedOffsetRange(5L, 7L, epochMilli(7L))), List.of(1L, 2L, 3L, 5L, 6L), epochMilli(8L), 7L)
+        );
+    }
 
-        // given (consumed: 0,1,2, processed: 0
-        Set<TopicPartition> partitions = ImmutableSet.of(TOPIC_PARTITION_0);
+    @Test
+    @Parameters
+    public void shouldTimeoutConsumedOffsets(List<ConsumedOffsetRange> consumed,
+                                             List<Long> processed,
+                                             Instant minConsumedAt,
+                                             long expectedTimedOutOffset) throws InterruptedException {
+
+        TopicPartition partition = TOPIC_PARTITION_0;
+        Set<TopicPartition> partitions = ImmutableSet.of(partition);
         OffsetsState offsetsState = createOffsetsStateSubject();
         offsetsState.register(partitions);
-        offsetsState.addConsumed(TOPIC_PARTITION_0, 0L, Instant.ofEpochMilli(10L));
-        offsetsState.addConsumed(TOPIC_PARTITION_0, 1L, Instant.ofEpochMilli(15L));
-        offsetsState.addConsumed(TOPIC_PARTITION_0, 2L, Instant.ofEpochMilli(20L));
-        offsetsState.updateProcessed(TOPIC_PARTITION_0, 0L);
+
+        consumed.forEach(consumedOffsetRange -> offsetsState.addConsumed(partition, consumedOffsetRange, consumedOffsetRange.getConsumedAt()));
+        //TODO: shuffle
+        processed.forEach(processedOffset -> offsetsState.updateProcessed(partition, processedOffset));
 
         assertThatThrownBy(() -> {
-            offsetsState.getOffsetsToCommit(partitions, Instant.ofEpochMilli(20L));
-        }).isInstanceOf(ProcessingTimeoutException.class).hasMessageContaining("Offset [1] for partition [topic-0] exceeded timeout");
+            offsetsState.getOffsetsToCommit(partitions, minConsumedAt);
+        }).isInstanceOf(ProcessingTimeoutException.class).hasMessageContaining(
+                String.format("Offset [%d] for partition [%s] exceeded timeout", expectedTimedOutOffset, partition));
     }
 
     private Object[] parametersForShouldReturnOffsetToCommit() {
@@ -351,12 +374,14 @@ public abstract class OffsetsStateTest {
                                            Long expectedToCommitAfter)
             throws InterruptedException {
         //given
-        Set<TopicPartition> partitions = ImmutableSet.of(TOPIC_PARTITION_0);
+        Instant constInstant = Instant.ofEpochSecond(123L);
+        TopicPartition partition = TOPIC_PARTITION_0;
+        Set<TopicPartition> partitions = ImmutableSet.of(partition);
         OffsetsState offsetsState = createOffsetsStateSubject();
         offsetsState.register(partitions);
 
         consumed.forEach(
-                consumedRange -> offsetsState.addConsumed(TOPIC_PARTITION_0, consumedRange)
+                consumedRange -> offsetsState.addConsumed(partition, consumedRange, constInstant)
         );
 
         List<Long> shuffledProcessedOffsets = processedOffsetsShuffler.getShuffled(
@@ -367,20 +392,20 @@ public abstract class OffsetsStateTest {
         );
         logger.info("shuffledProcessedOffsets: {}", shuffledProcessedOffsets);
         shuffledProcessedOffsets.forEach(
-                processedOffset -> offsetsState.updateProcessed(TOPIC_PARTITION_0, processedOffset)
+                processedOffset -> offsetsState.updateProcessed(partition, processedOffset)
         );
 
         //when
-        Map<TopicPartition, OffsetAndMetadata> offsetsToCommit = offsetsState.getOffsetsToCommit(partitions);
+        Map<TopicPartition, OffsetAndMetadata> offsetsToCommit = offsetsState.getOffsetsToCommit(partitions, constInstant);
 
         //then
         checkExpectedToCommit(offsetsToCommit, expectedToCommitBefore);
 
         //when
         if (committed != null) {
-            offsetsState.removeCommitted(Map.of(TOPIC_PARTITION_0, new OffsetAndMetadata(committed + 1)));
+            offsetsState.removeCommitted(Map.of(partition, new OffsetAndMetadata(committed + 1)));
         }
-        offsetsToCommit = offsetsState.getOffsetsToCommit(partitions);
+        offsetsToCommit = offsetsState.getOffsetsToCommit(partitions, constInstant);
 
         //then
         checkExpectedToCommit(offsetsToCommit, expectedToCommitAfter);
@@ -394,6 +419,14 @@ public abstract class OffsetsStateTest {
         } else {
             assertThat(offsetsToCommit).isEmpty();
         }
+    }
+
+    private ConsumedOffsetRange consumedOffsetRange(long lower, long upper, Instant createdAt) {
+        return new ConsumedOffsetRange(range(lower, upper), createdAt);
+    }
+
+    private Instant epochMilli(long epochMilli) {
+        return Instant.ofEpochMilli(epochMilli);
     }
 
 }

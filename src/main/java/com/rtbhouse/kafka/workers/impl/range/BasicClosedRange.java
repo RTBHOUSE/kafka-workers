@@ -3,6 +3,7 @@ package com.rtbhouse.kafka.workers.impl.range;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import java.util.Iterator;
+import java.util.Objects;
 import java.util.stream.LongStream;
 
 public class BasicClosedRange implements ClosedRange {
@@ -64,5 +65,19 @@ public class BasicClosedRange implements ClosedRange {
         public ClosedRange build() {
             return new BasicClosedRange(this);
         }
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        BasicClosedRange longs = (BasicClosedRange) o;
+        return lowerEndpoint == longs.lowerEndpoint &&
+                upperEndpoint == longs.upperEndpoint;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(lowerEndpoint, upperEndpoint);
     }
 }
