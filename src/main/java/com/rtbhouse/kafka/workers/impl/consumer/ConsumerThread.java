@@ -184,7 +184,7 @@ public class ConsumerThread<K, V> extends AbstractWorkersThread implements Parti
     }
 
     private void commitSync() {
-        Map<TopicPartition, OffsetAndMetadata> offsets = offsetsState.getOffsetsToCommit(consumer.assignment());
+        Map<TopicPartition, OffsetAndMetadata> offsets = offsetsState.getOffsetsToCommit();
         logger.debug("committing offsets sync: {}", offsets);
         if (!offsets.isEmpty()) {
             try {
@@ -199,7 +199,7 @@ public class ConsumerThread<K, V> extends AbstractWorkersThread implements Parti
 
     private void commitAsync() {
         Instant minCreatedAt = Instant.now().minus(consumerProcessingTimeout);
-        Map<TopicPartition, OffsetAndMetadata> offsets = offsetsState.getOffsetsToCommit(consumer.assignment(), minCreatedAt);
+        Map<TopicPartition, OffsetAndMetadata> offsets = offsetsState.getOffsetsToCommit(minCreatedAt);
         logger.debug("committing offsets async: {}", offsets);
         if (!offsets.isEmpty()) {
             consumer.commitAsync(offsets, commitCallback);
