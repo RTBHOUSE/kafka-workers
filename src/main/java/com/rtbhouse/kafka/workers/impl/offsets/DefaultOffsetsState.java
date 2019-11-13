@@ -23,6 +23,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.rtbhouse.kafka.workers.api.WorkersConfig;
 import com.rtbhouse.kafka.workers.impl.errors.BadOffsetException;
 import com.rtbhouse.kafka.workers.impl.errors.ProcessingTimeoutException;
@@ -204,11 +205,11 @@ public class DefaultOffsetsState implements OffsetsState {
     }
 
     @Override
-    public Map<TopicPartition, OffsetAndMetadata> getOffsetsToCommit(Set<TopicPartition> assignedPartitions, Instant minConsumedAt) {
+    public Map<TopicPartition, OffsetAndMetadata> getOffsetsToCommit(Instant minConsumedAt) {
 
         ImmutableMap.Builder<TopicPartition, OffsetAndMetadata> builder = ImmutableMap.builder();
 
-        for (TopicPartition partition : assignedPartitions) {
+        for (TopicPartition partition : getPartitions()) {
             Long offsetToCommit = getOffsetToCommit(partition, minConsumedAt);
             if (offsetToCommit != null) {
                 builder.put(partition, new OffsetAndMetadata(offsetToCommit + 1));
@@ -217,6 +218,10 @@ public class DefaultOffsetsState implements OffsetsState {
         }
 
         return builder.build();
+    }
+
+    private Set<TopicPartition> getPartitions() {
+        return ImmutableSet.copyOf(consumedOffsetsMap.keySet());
     }
 
     private Long getOffsetToCommit(TopicPartition partition, Instant minConsumedAt) {

@@ -2,7 +2,6 @@ package com.rtbhouse.kafka.workers.impl.offsets;
 
 import java.time.Instant;
 import java.util.Map;
-import java.util.Set;
 
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
@@ -24,10 +23,10 @@ public interface OffsetsState extends Partitioned {
 
     void updateProcessed(TopicPartition partition, long offset);
 
-    Map<TopicPartition, OffsetAndMetadata> getOffsetsToCommit(Set<TopicPartition> assignedPartitions, Instant minConsumedAt);
+    Map<TopicPartition, OffsetAndMetadata> getOffsetsToCommit(Instant minConsumedAt);
 
-    default Map<TopicPartition, OffsetAndMetadata> getOffsetsToCommit(Set<TopicPartition> assignedPartitions) {
-        return getOffsetsToCommit(assignedPartitions, null);
+    default Map<TopicPartition, OffsetAndMetadata> getOffsetsToCommit() {
+        return getOffsetsToCommit(null);
     }
 
     void removeCommitted(Map<TopicPartition, OffsetAndMetadata> offsetsAndMetadata);
