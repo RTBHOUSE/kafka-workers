@@ -13,7 +13,7 @@ Kafka Workers is a client library which unifies records consuming from Kafka and
 
 ## Version
 
-Current version is **1.0.12**
+Current version is **1.0.13**
 
 ## Requirements
 
@@ -27,7 +27,7 @@ Releases are distributed on [mvn repository](https://mvnrepository.com/artifact/
 <dependency>
     <groupId>com.rtbhouse</groupId>
     <artifactId>kafka-workers</artifactId>
-    <version>1.0.12</version>
+    <version>1.0.13</version>
 </dependency>
 ```
 
@@ -81,6 +81,12 @@ Usage example:
     kafkaWorkers.start();
  }
 ```
+
+## Internals
+
+Internally one Kafka Workers instance launches one consumer thread, one punctuator thread and configurable count of worker threads. Each thread can execute one or more WorkerTasks and each WorkerTask processes WorkerRecords from internal queue associated with given WorkerSubpartition. Kafka Workers ensures by its offsets state that only continuously processed offsets are commited. 
+
+![Kafka Workers Architecture](docs/workers-arch.png)
 
 ## Configuration
 
@@ -250,19 +256,13 @@ Usage example:
 </tr>
 </tbody></table>
 
-## Internals
-
-Internally one Kafka Workers instance launches one consumer thread, one punctuator thread and configurable count of worker threads. Each thread can execute one or more WorkerTasks and each WorkerTask processes WorkerRecords from internal queue associated with given WorkerSubpartition. Kafka Workers ensures by its offsets state that only continuously processed offsets are commited. 
-
-![Kafka Workers Architecture](docs/workers-arch.png)
-
 ## Use cases
 
 At RTB House we use Kafka Workers for all components in our processing infrastructure. For more details please check out our techblog page:
  - [Our real-time data processing - part 1](https://techblog.rtbhouse.com/2017/06/15/data-flow-part1)
  - [Our real-time data processing - part 2](https://techblog.rtbhouse.com/2018/12/10/data-flow-part2)
 
-So far we have adopted Kafka Workers to all our use cases: BigQuery, HDFS, Elasticsearch, Aerospike, Postgres streaming writers and other Kafka to Kafka data flows which include merging, joining, dispatching, enriching, deduplicating, counting aggregates for streams of events.
+So far we have adopted Kafka Workers to all our use cases: BigQuery, HDFS, Elasticsearch, Aerospike, Postgres streaming writers and other Kafka to Kafka data flows which include merging, joining, dispatching, enriching, deduplicating, counting aggregates for streams of events. The diagram below shows high-level architecture of our current processing infrastructure:
 
 ![Our real-time data processing](docs/multi-dc-arch.png)
 
