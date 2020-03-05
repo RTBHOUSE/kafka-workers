@@ -1,5 +1,10 @@
 package com.rtbhouse.kafka.workers.api;
 
+import java.util.EnumSet;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+
 import com.rtbhouse.kafka.workers.api.partitioner.DefaultPartitioner;
 import com.rtbhouse.kafka.workers.api.partitioner.WorkerPartitioner;
 import com.rtbhouse.kafka.workers.api.partitioner.WorkerSubpartition;
@@ -46,6 +51,31 @@ import com.rtbhouse.kafka.workers.impl.KafkaWorkersImpl;
  * </pre>
  */
 public class KafkaWorkers<K, V> {
+
+    public enum Status {
+        CREATED, STARTING, STARTED, SHUTDOWN, CLOSING, CLOSED_GRACEFULLY, CLOSED_NOT_GRACEFULLY, CANNOT_STOP_THREADS, CLOSING_INTERRUPTED;
+
+        private static Map<Status, Set<Status>> ALLOWED_TRANSITIONS = Map.of(
+                CREATED, Set.of(STARTING),
+                STARTING, Set.of(STARTED),
+                STARTED, Set.of(SHUTDOWN),
+                SHUTDOWN, Set.of(CLOSING),
+                CLOSING, Set.of(CLOSED_GRACEFULLY, CLOSED_NOT_GRACEFULLY, CANNOT_STOP_THREADS, CLOSING_INTERRUPTED)
+        );
+
+        private static Set<Status> TERMINAL_STATUSES = EnumSet.complementOf(EnumSet.copyOf(ALLOWED_TRANSITIONS.keySet()));
+
+        public static boolean isTransitionAllowed(Status from, Status to) {
+            return Optional.ofNullable(from)
+                    .map(ALLOWED_TRANSITIONS::get)
+                    .map(allowed -> allowed.contains(to))
+                    .orElse(to.equals(CREATED));
+        }
+
+        public boolean isTerminal() {
+            return TERMINAL_STATUSES.contains(this);
+        }
+    }
 
     private final KafkaWorkersImpl<K, V> workers;
 
@@ -126,4 +156,7 @@ public class KafkaWorkers<K, V> {
         workers.blockingShutdown();
     }
 
+    public Status getStatus() {
+        return workers.getStatus();
+    }
 }
