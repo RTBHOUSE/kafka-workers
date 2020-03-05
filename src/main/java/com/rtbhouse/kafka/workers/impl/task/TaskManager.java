@@ -100,9 +100,9 @@ public class TaskManager<K, V> implements Partitioned {
             thread.clearTasks();
         }
 
-        // waits for all threads to stop because only then could do tasks rebalance safely
+        // waits for all threads to stop because only then tasks can be rebalanced safely
         synchronized (rebalanceLock) {
-            while (!allThreadsStopped()) {
+            while (!allThreadsNotRunning()) {
                 rebalanceLock.wait();
             }
         }
@@ -115,7 +115,7 @@ public class TaskManager<K, V> implements Partitioned {
         }
     }
 
-    private boolean allThreadsStopped() {
+    private boolean allThreadsNotRunning() {
         return threads.stream().allMatch(WorkerThread::isNotRunning);
     }
 

@@ -101,6 +101,10 @@ public class WorkersConfig extends AbstractConfig {
      */
     public static final String WORKER_TASK_PREFIX = "worker.task.";
 
+    public static final String WORKER_SHUTDOWN_TIMEOUT_MS = "worker.shutdown.timeout.ms";
+    private static final String WORKER_SHUTDOWN_TIMEOUT_MS_DOC = "Time in milliseconds to wait for all threads to finish their execution";
+    private static final long WORKER_SHUTDOWN_TIMEOUT_MS_DEFAULT = Duration.ofMinutes(1).toMillis();
+
     /**
      * The frequency in milliseconds that punctuate method is called.
      */
@@ -174,6 +178,11 @@ public class WorkersConfig extends AbstractConfig {
                         WORKER_SLEEP_MS_DEFAULT,
                         Importance.MEDIUM,
                         WORKER_SLEEP_MS_DOC)
+                .define(WORKER_SHUTDOWN_TIMEOUT_MS,
+                        Type.LONG,
+                        WORKER_SHUTDOWN_TIMEOUT_MS_DEFAULT,
+                        Importance.MEDIUM,
+                        WORKER_SHUTDOWN_TIMEOUT_MS_DOC)
                 .define(WORKER_PROCESSING_GUARANTEE,
                         Type.STRING,
                         WORKER_PROCESSING_GUARANTEE_DEFAULT,
@@ -298,4 +307,7 @@ public class WorkersConfig extends AbstractConfig {
         return RecordProcessingGuarantee.fromString(getString(WORKER_PROCESSING_GUARANTEE));
     }
 
+    public Duration getShutdownTimeout() {
+        return Duration.ofMillis(getLong(WORKER_SHUTDOWN_TIMEOUT_MS));
+    }
 }

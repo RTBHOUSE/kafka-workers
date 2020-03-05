@@ -107,6 +107,12 @@ public class WorkerThread<K, V> extends AbstractWorkersThread {
     }
 
     @Override
+    public void finish() {
+        // stopped has just been set to true
+        taskManager.notifyTaskManager();
+    }
+
+    @Override
     public void close() {
         for (WorkerTaskImpl<K, V> task : tasks) {
             task.close();
@@ -118,7 +124,7 @@ public class WorkerThread<K, V> extends AbstractWorkersThread {
     public synchronized void shutdown(WorkersException exception) {
         super.shutdown(exception);
         // in case of shutdown we do not want to block thread any more
-        notifyAll();
+        notify();
     }
 
     public int getWorkerId() {
@@ -146,22 +152,19 @@ public class WorkerThread<K, V> extends AbstractWorkersThread {
             if (queueManager.peek(task.subpartition()) != null) {
                 waiting = false;
                 // wakes thread up because at least one record was pushed to process
-                notifyAll();
+                notify();
                 break;
             }
         }
         if (shouldPunctuateNow()) {
             waiting = false;
             // wakes thread up because should punctuate tasks
-            notifyAll();
+            notify();
         }
     }
 
     public boolean shouldPunctuateNow() {
-        if (tasks.size() > 0 && remainingMsToPunctuate() <= 0) {
-            return true;
-        }
-        return false;
+        return tasks.size() > 0 && remainingMsToPunctuate() <= 0;
     }
 
     private long remainingMsToPunctuate() {
@@ -185,7 +188,7 @@ public class WorkerThread<K, V> extends AbstractWorkersThread {
                 waiting = true;
                 // notifies TaskManager that thread is waiting so possible tasks rebalance could take place now
                 taskManager.notifyTaskManager();
-                // blocks thread because there are not any tasks/records to process
+                // blocks thread because there are no tasks/records to process
                 wait();
             }
         }
