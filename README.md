@@ -13,7 +13,7 @@ Kafka Workers is a client library which unifies records consuming from Kafka and
 
 ## Version
 
-Current version is **1.0.13**
+Current version is **1.0.14**
 
 ## Requirements
 
@@ -27,7 +27,7 @@ Releases are distributed on [mvn repository](https://mvnrepository.com/artifact/
 <dependency>
     <groupId>com.rtbhouse</groupId>
     <artifactId>kafka-workers</artifactId>
-    <version>1.0.13</version>
+    <version>1.0.14</version>
 </dependency>
 ```
 
@@ -258,9 +258,10 @@ Internally one Kafka Workers instance launches one consumer thread, one punctuat
 
 ## Use cases
 
-At RTB House we use Kafka Workers for all components in our processing infrastructure. For more details please check out our techblog page:
+At RTB House we use Kafka Workers for all components in our processing infrastructure. For more details please check out our techblog posts:
  - [Our real-time data processing - part 1](https://techblog.rtbhouse.com/2017/06/15/data-flow-part1)
  - [Our real-time data processing - part 2](https://techblog.rtbhouse.com/2018/12/10/data-flow-part2)
+ - [Kafka Workers as an alternative to Kafka Connect](https://techblog.rtbhouse.com/2020/03/31/kafka-workers-vs-connect/)
 
 So far we have adopted Kafka Workers to all our use cases: BigQuery, HDFS, Elasticsearch, Aerospike, Postgres streaming writers and other Kafka to Kafka data flows which include merging, joining, dispatching, enriching, deduplicating, counting aggregates for streams of events. The diagram below shows high-level architecture of our current processing infrastructure:
 
