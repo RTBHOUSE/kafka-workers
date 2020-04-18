@@ -1,5 +1,8 @@
 package com.rtbhouse.kafka.workers.impl.task;
 
+import java.util.concurrent.TimeUnit;
+
+import com.google.common.base.Stopwatch;
 import com.rtbhouse.kafka.workers.api.WorkersConfig;
 import com.rtbhouse.kafka.workers.api.partitioner.WorkerSubpartition;
 import com.rtbhouse.kafka.workers.api.record.RecordStatusObserver;
@@ -13,6 +16,8 @@ public class WorkerTaskImpl<K, V> implements WorkerTask<K, V> {
     private final WorkerTask<K, V> task;
 
     private final WorkersMetrics metrics;
+
+    private final Stopwatch stopwatch = Stopwatch.createUnstarted();
 
     // subpartition which is associated with given task in one-to-one relation
     private WorkerSubpartition subpartition;
@@ -45,7 +50,11 @@ public class WorkerTaskImpl<K, V> implements WorkerTask<K, V> {
     public void process(WorkerRecord<K, V> record, RecordStatusObserver observer) {
         metrics.recordSensor(WorkersMetrics.PROCESSING_OFFSET_METRIC, subpartition, record.offset());
         try {
+            stopwatch.reset().start();
             task.process(record, observer);
+            long processingTimeNanos = stopwatch.stop().elapsed(TimeUnit.NANOSECONDS);
+            metrics.recordSensor(WorkersMetrics.PROCESSING_TIME_SYNC_SENSOR, record.topicPartition(), processingTimeNanos);
+            metrics.recordSensor(WorkersMetrics.PROCESSING_TIME_SYNC_SENSOR, record.workerSubpartition(), processingTimeNanos);
         } catch (Exception e) {
             observer.onFailure(e);
         }

@@ -4,12 +4,14 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.rtbhouse.kafka.workers.impl.offsets.OffsetStatus.CONSUMED;
 import static com.rtbhouse.kafka.workers.impl.offsets.OffsetStatus.PROCESSED;
 
+import java.time.Duration;
 import java.util.Collection;
 import java.util.List;
 import java.util.stream.Stream;
 
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.metrics.JmxReporter;
+import org.apache.kafka.common.metrics.MeasurableStat;
 import org.apache.kafka.common.metrics.MetricConfig;
 import org.apache.kafka.common.metrics.Metrics;
 import org.apache.kafka.common.metrics.MetricsReporter;
@@ -18,6 +20,8 @@ import org.apache.kafka.common.metrics.stats.Avg;
 import org.apache.kafka.common.metrics.stats.Count;
 import org.apache.kafka.common.metrics.stats.Max;
 import org.apache.kafka.common.metrics.stats.Min;
+import org.apache.kafka.common.metrics.stats.Percentile;
+import org.apache.kafka.common.metrics.stats.Percentiles;
 import org.apache.kafka.common.metrics.stats.Rate;
 import org.apache.kafka.common.metrics.stats.Value;
 import org.apache.kafka.common.utils.Time;
@@ -56,6 +60,8 @@ public class WorkersMetrics {
     public static final String OFFSET_RANGES_CONSUMED_COUNT = "offset-ranges.consumed.count";
     public static final String OFFSET_RANGES_PROCESSED_COUNT = "offset-ranges.processed.count";
 
+    public static final String PROCESSING_TIME_SYNC_SENSOR = "worker-thread.processing.sync.nanos";
+
     private static final List<String> ALL_OFFSETS_STATE_METRIC_NAMES = ImmutableList.of(
             OFFSETS_CONSUMED_COUNT,
             OFFSETS_PROCESSED_COUNT,
@@ -78,10 +84,10 @@ public class WorkersMetrics {
                 metrics.sensor(KAFKA_POLL_RECORDS_SIZE_SENSOR)
         ).forEach(
                 sensor -> {
-                    checkState(sensor.add(metrics.metricName("min", sensor.name()), new Min()));
-                    checkState(sensor.add(metrics.metricName("max", sensor.name()), new Max()));
-                    checkState(sensor.add(metrics.metricName("avg", sensor.name()), new Avg()));
-                    checkState(sensor.add(metrics.metricName("count-per-sec", sensor.name()), new Rate(new Count())));
+                    addToSensor(sensor,"min", new Min());
+                    addToSensor(sensor,"max", new Max());
+                    addToSensor(sensor,"avg", new Avg());
+                    addToSensor(sensor,"count-per-sec", new Rate(new Count()));
                 }
         );
     }
@@ -95,9 +101,9 @@ public class WorkersMetrics {
     }
 
     public void addConsumerThreadPartitionMetrics(TopicPartition partition) {
-        addSensor(PAUSED_PARTITIONS_METRIC, partition);
-        addSensor(CONSUMED_OFFSET_METRIC, partition);
-        addSensor(COMMITTED_OFFSET_METRIC, partition);
+        addValueStatToSensor(PAUSED_PARTITIONS_METRIC, partition);
+        addValueStatToSensor(CONSUMED_OFFSET_METRIC, partition);
+        addValueStatToSensor(COMMITTED_OFFSET_METRIC, partition);
     }
 
     public void removeConsumerThreadPartitionMetrics(TopicPartition partition) {
@@ -107,10 +113,15 @@ public class WorkersMetrics {
     }
 
     public void addWorkerThreadSubpartitionMetrics(WorkerSubpartition subpartition) {
-        addSensor(ACCEPTING_OFFSET_METRIC, subpartition);
-        addSensor(ACCEPTED_OFFSET_METRIC, subpartition);
-        addSensor(PROCESSING_OFFSET_METRIC, subpartition);
-        addSensor(PROCESSED_OFFSET_METRIC, subpartition);
+        addValueStatToSensor(ACCEPTING_OFFSET_METRIC, subpartition);
+        addValueStatToSensor(ACCEPTED_OFFSET_METRIC, subpartition);
+        addValueStatToSensor(PROCESSING_OFFSET_METRIC, subpartition);
+        addValueStatToSensor(PROCESSED_OFFSET_METRIC, subpartition);
+
+        String processingTimeSensorName = nameWithSubpartition(PROCESSING_TIME_SYNC_SENSOR, subpartition);
+        Sensor processingTimeSensor = metrics.sensor(processingTimeSensorName);
+        addToSensor(processingTimeSensor, "count", new Count());
+        processingTimeSensor.add(durationPercentiles(processingTimeSensor, Duration.ofSeconds(10)));
     }
 
     public void removeWorkerThreadSubpartitionMetrics(WorkerSubpartition subpartition) {
@@ -118,23 +129,38 @@ public class WorkersMetrics {
         removeSensor(ACCEPTED_OFFSET_METRIC, subpartition);
         removeSensor(PROCESSING_OFFSET_METRIC, subpartition);
         removeSensor(PROCESSED_OFFSET_METRIC, subpartition);
+        removeSensor(PROCESSING_TIME_SYNC_SENSOR, subpartition);
     }
 
-    public void addSensor(String name, TopicPartition partition) {
-        addSensor(name + "." + partition);
+    private void addToSensor(Sensor sensor, String statName, MeasurableStat stat) {
+        checkState(sensor.add(metrics.metricName(statName, sensor.name()), stat));
     }
 
-    public void addSensor(String name, WorkerSubpartition subpartition) {
-        addSensor(nameWithSubpartition(name, subpartition));
+    private Percentiles durationPercentiles(Sensor sensor, Duration maxDuration) {
+        Percentile[] percentiles = new Percentile[] {
+                new Percentile(metrics.metricName("p50", sensor.name()), 50.0d),
+                new Percentile(metrics.metricName("p90", sensor.name()), 90.0d),
+                new Percentile(metrics.metricName("p99", sensor.name()), 99.0d),
+                new Percentile(metrics.metricName("p999", sensor.name()), 99.9d)
+        };
+        //TODO: what is a proper sizeInBytes value?
+        return new Percentiles(10 * 1024, maxDuration.toNanos(), Percentiles.BucketSizing.CONSTANT, percentiles);
+    }
+
+    public void addValueStatToSensor(String name, TopicPartition partition) {
+        addValueStatToSensor(name + "." + partition);
+    }
+
+    public void addValueStatToSensor(String name, WorkerSubpartition subpartition) {
+        addValueStatToSensor(nameWithSubpartition(name, subpartition));
     }
 
     private String nameWithSubpartition(String name, WorkerSubpartition subpartition) {
         return String.format("%s.%s.%d", name, subpartition.topicPartition(), subpartition.subpartition());
     }
 
-    public void addSensor(String name) {
-        Sensor sensor = metrics.sensor(name);
-        sensor.add(metrics.metricName("value", name), new Value());
+    public void addValueStatToSensor(String sensorName) {
+        addToSensor(metrics.sensor(sensorName), "value", new Value());
     }
 
     public void recordSensor(String name, TopicPartition partition, long value) {
