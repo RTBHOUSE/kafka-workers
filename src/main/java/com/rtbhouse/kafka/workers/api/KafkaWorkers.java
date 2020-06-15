@@ -9,10 +9,12 @@ import com.rtbhouse.kafka.workers.api.partitioner.DefaultPartitioner;
 import com.rtbhouse.kafka.workers.api.partitioner.WorkerPartitioner;
 import com.rtbhouse.kafka.workers.api.partitioner.WorkerSubpartition;
 import com.rtbhouse.kafka.workers.api.record.RecordStatusObserver;
+import com.rtbhouse.kafka.workers.api.record.Weigher;
 import com.rtbhouse.kafka.workers.api.record.WorkerRecord;
 import com.rtbhouse.kafka.workers.api.task.WorkerTask;
 import com.rtbhouse.kafka.workers.api.task.WorkerTaskFactory;
 import com.rtbhouse.kafka.workers.impl.KafkaWorkersImpl;
+import com.rtbhouse.kafka.workers.impl.record.SimpleRecordWeigher;
 
 /**
  * {@code KafkaWorkers} is a client library which unifies records consuming from Kafka and processing them by
@@ -136,7 +138,16 @@ public class KafkaWorkers<K, V> {
             WorkerTaskFactory<K, V> factory,
             WorkerPartitioner<K, V> partitioner,
             ShutdownCallback callback) {
-        this.workers = new KafkaWorkersImpl<>(config, factory, partitioner, callback);
+        this(config, factory, partitioner, new SimpleRecordWeigher<>(), callback);
+    }
+
+    public KafkaWorkers(
+            WorkersConfig config,
+            WorkerTaskFactory<K, V> factory,
+            WorkerPartitioner<K, V> partitioner,
+            Weigher<WorkerRecord<K, V>> recordWeigher,
+            ShutdownCallback callback) {
+        this.workers = new KafkaWorkersImpl<>(config, factory, partitioner, recordWeigher, callback);
     }
 
     /**

@@ -30,6 +30,8 @@ import com.rtbhouse.kafka.workers.api.ShutdownCallback;
 import com.rtbhouse.kafka.workers.api.WorkersConfig;
 import com.rtbhouse.kafka.workers.api.WorkersException;
 import com.rtbhouse.kafka.workers.api.partitioner.WorkerPartitioner;
+import com.rtbhouse.kafka.workers.api.record.Weigher;
+import com.rtbhouse.kafka.workers.api.record.WorkerRecord;
 import com.rtbhouse.kafka.workers.api.task.WorkerTaskFactory;
 import com.rtbhouse.kafka.workers.impl.consumer.ConsumerThread;
 import com.rtbhouse.kafka.workers.impl.errors.BadStatusException;
@@ -50,6 +52,7 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
     private final WorkersMetrics metrics;
     private final WorkerTaskFactory<K, V> taskFactory;
     private final SubpartitionSupplier<K, V> subpartitionSupplier;
+    private final Weigher<WorkerRecord<K, V>> recordWeigher;
     private final ShutdownCallback callback;
 
     private TaskManager<K, V> taskManager;
@@ -73,11 +76,13 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
             WorkersConfig config,
             WorkerTaskFactory<K, V> taskFactory,
             WorkerPartitioner<K, V> partitioner,
+            Weigher<WorkerRecord<K, V>> recordWeigher,
             ShutdownCallback callback) {
         this.config = config;
         this.metrics = new WorkersMetrics(config);
         this.taskFactory = taskFactory;
         this.subpartitionSupplier = new SubpartitionSupplier<>(partitioner);
+        this.recordWeigher = recordWeigher;
         this.callback = callback;
         this.offsetsState = new DefaultOffsetsState(this.config, this.metrics);;
     }
@@ -87,10 +92,10 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
         logger.info("kafka workers starting");
 
         taskManager = new TaskManager<>(config, metrics, taskFactory, subpartitionSupplier, workerThreads);
-        queueManager = new QueuesManager<>(config, metrics, subpartitionSupplier, taskManager);
+        queueManager = new QueuesManager<>(config, metrics, subpartitionSupplier, taskManager, recordWeigher);
 
         final int workerThreadsNum = config.getInt(WorkersConfig.WORKER_THREADS_NUM);
-        consumerThread = new ConsumerThread<>(config, metrics, this, queueManager, subpartitionSupplier, offsetsState);
+        consumerThread = new ConsumerThread<>(config, metrics, this, queueManager, subpartitionSupplier, offsetsState, recordWeigher);
         for (int i = 0; i < workerThreadsNum; i++) {
             workerThreads.add(new WorkerThread<>(i, config, metrics, this,  taskManager, queueManager, offsetsState));
         }

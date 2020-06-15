@@ -22,7 +22,6 @@ import org.apache.kafka.common.metrics.MetricsReporter;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
-import com.rtbhouse.kafka.workers.api.partitioner.WorkerSubpartition;
 import com.rtbhouse.kafka.workers.api.record.RecordProcessingGuarantee;
 import com.rtbhouse.kafka.workers.api.task.WorkerTask;
 import com.rtbhouse.kafka.workers.impl.consumer.ConsumerThread;
@@ -112,19 +111,24 @@ public class WorkersConfig extends AbstractConfig {
     private static final String PUNCTUATOR_INTERVAL_MS_DOC = "The frequency in milliseconds that punctuate method is called.";
     private static final long PUNCTUATOR_INTERVAL_MS_DEFAULT = Duration.of(1, ChronoUnit.SECONDS).toMillis();
 
-    /**
-     * Max size in bytes for single {@link WorkerSubpartition}'s internal queue.
-     */
-    public static final String QUEUE_MAX_SIZE_BYTES = "queue.max.size.bytes";
-    private static final String QUEUE_MAX_SIZE_BYTES_DOC = "Max size in bytes for single WorkerSubpartition's internal queue.";
-    private static final long QUEUE_MAX_SIZE_BYTES_DEFAULT = 256 * 1024 * 1024;
+//    /**
+//     * Max size in bytes for single {@link WorkerSubpartition}'s internal queue.
+//     */
+//    public static final String QUEUE_MAX_SIZE_BYTES = "queue.max.size.bytes";
+//    private static final String QUEUE_MAX_SIZE_BYTES_DOC = "Max size in bytes for single WorkerSubpartition's internal queue.";
+//    private static final long QUEUE_MAX_SIZE_BYTES_DEFAULT = 256 * 1024 * 1024;
+//
+//    /**
+//     * Max total size in bytes for all internal queues.
+//     */
+//    public static final String QUEUE_TOTAL_MAX_SIZE_BYTES = "queue.total.max.size.bytes";
+//    private static final String QUEUE_TOTAL_MAX_SIZE_BYTES_DOC = "Total max size in bytes for all internal queues.";
+//    private static final Long QUEUE_TOTAL_MAX_SIZE_BYTES_DEFAULT = null;
 
-    /**
-     * Max total size in bytes for all internal queues.
-     */
-    public static final String QUEUE_TOTAL_MAX_SIZE_BYTES = "queue.total.max.size.bytes";
-    private static final String QUEUE_TOTAL_MAX_SIZE_BYTES_DOC = "Total max size in bytes for all internal queues.";
-    private static final Long QUEUE_TOTAL_MAX_SIZE_BYTES_DEFAULT = null;
+
+    public static final String QUEUE_TOTAL_SIZE_HEAP_RATIO = "queue.total.size.heap.ratio";
+    private static final String QUEUE_TOTAL_SIZE_HEAP_RATIO_DOC = "Ratio of queue total size to heap size.";
+    private static final double QUEUE_TOTAL_SIZE_HEAP_RATIO_DEFAULT = 0.6;
 
     /**
      * The minimum ratio of used to total queue size for partition resuming.
@@ -200,16 +204,16 @@ public class WorkersConfig extends AbstractConfig {
                         PUNCTUATOR_INTERVAL_MS_DEFAULT,
                         Importance.MEDIUM,
                         PUNCTUATOR_INTERVAL_MS_DOC)
-                .define(QUEUE_MAX_SIZE_BYTES,
-                        Type.LONG,
-                        QUEUE_MAX_SIZE_BYTES_DEFAULT,
-                        Importance.MEDIUM,
-                        QUEUE_MAX_SIZE_BYTES_DOC)
-                .define(QUEUE_TOTAL_MAX_SIZE_BYTES,
-                        Type.LONG,
-                        QUEUE_TOTAL_MAX_SIZE_BYTES_DEFAULT,
-                        Importance.MEDIUM,
-                        QUEUE_TOTAL_MAX_SIZE_BYTES_DOC)
+                .define(QUEUE_TOTAL_SIZE_HEAP_RATIO,
+                        Type.DOUBLE,
+                        QUEUE_TOTAL_SIZE_HEAP_RATIO_DEFAULT,
+                        (name, value) -> {
+                            if (value == null || (double)value < 0 || (double)value > 1) {
+                                throw new ConfigException("Value: [%s] should be in range [0, 1]", value);
+                            }
+                        },
+                        Importance.HIGH,
+                        QUEUE_TOTAL_SIZE_HEAP_RATIO_DOC)
                 .define(QUEUE_RESUME_RATIO,
                         Type.DOUBLE,
                         QUEUE_RESUME_RATIO_DEFAULT,
@@ -309,5 +313,9 @@ public class WorkersConfig extends AbstractConfig {
 
     public Duration getShutdownTimeout() {
         return Duration.ofMillis(getLong(WORKER_SHUTDOWN_TIMEOUT_MS));
+    }
+
+    public double getQueueTotalSizeBytesHeapRatio() {
+        return getDouble(QUEUE_TOTAL_SIZE_HEAP_RATIO);
     }
 }
