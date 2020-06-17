@@ -9,12 +9,12 @@ import com.rtbhouse.kafka.workers.api.partitioner.DefaultPartitioner;
 import com.rtbhouse.kafka.workers.api.partitioner.WorkerPartitioner;
 import com.rtbhouse.kafka.workers.api.partitioner.WorkerSubpartition;
 import com.rtbhouse.kafka.workers.api.record.RecordStatusObserver;
-import com.rtbhouse.kafka.workers.api.record.Weigher;
 import com.rtbhouse.kafka.workers.api.record.WorkerRecord;
+import com.rtbhouse.kafka.workers.api.record.weigher.SimpleRecordWeigher;
+import com.rtbhouse.kafka.workers.api.record.weigher.Weigher;
 import com.rtbhouse.kafka.workers.api.task.WorkerTask;
 import com.rtbhouse.kafka.workers.api.task.WorkerTaskFactory;
 import com.rtbhouse.kafka.workers.impl.KafkaWorkersImpl;
-import com.rtbhouse.kafka.workers.impl.record.SimpleRecordWeigher;
 
 /**
  * {@code KafkaWorkers} is a client library which unifies records consuming from Kafka and processing them by

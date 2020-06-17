@@ -16,8 +16,8 @@ import org.slf4j.LoggerFactory;
 
 import com.rtbhouse.kafka.workers.api.WorkersConfig;
 import com.rtbhouse.kafka.workers.api.partitioner.WorkerSubpartition;
-import com.rtbhouse.kafka.workers.api.record.Weigher;
 import com.rtbhouse.kafka.workers.api.record.WorkerRecord;
+import com.rtbhouse.kafka.workers.api.record.weigher.Weigher;
 import com.rtbhouse.kafka.workers.impl.Partitioned;
 import com.rtbhouse.kafka.workers.impl.metrics.WorkersMetrics;
 import com.rtbhouse.kafka.workers.impl.partitioner.SubpartitionSupplier;

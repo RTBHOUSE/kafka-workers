@@ -1,6 +1,5 @@
-package com.rtbhouse.kafka.workers.impl.record;
+package com.rtbhouse.kafka.workers.api.record.weigher;
 
-import com.rtbhouse.kafka.workers.api.record.Weigher;
 import com.rtbhouse.kafka.workers.api.record.WorkerRecord;
 
 public class SimpleRecordWeigher<K, V> implements Weigher<WorkerRecord<K, V>> {

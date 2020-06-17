@@ -1,4 +1,4 @@
-package com.rtbhouse.kafka.workers.impl.record;
+package com.rtbhouse.kafka.workers.api.record.weigher;
 
 import java.util.Map;
 
@@ -7,11 +7,7 @@ import org.apache.kafka.common.header.Headers;
 import org.apache.kafka.common.header.internals.RecordHeader;
 import org.apache.kafka.common.header.internals.RecordHeaders;
 
-import com.rtbhouse.kafka.workers.api.record.Weigher;
 import com.rtbhouse.kafka.workers.api.record.WorkerRecord;
-import com.rtbhouse.kafka.workers.impl.record.weigher.ByteArrayWeigher;
-import com.rtbhouse.kafka.workers.impl.record.weigher.StringWeigher;
-import com.rtbhouse.kafka.workers.impl.record.weigher.WeigherHelpers;
 
 public class DefaultRecordWeigher<K, V> implements Weigher<WorkerRecord<K, V>> {
 

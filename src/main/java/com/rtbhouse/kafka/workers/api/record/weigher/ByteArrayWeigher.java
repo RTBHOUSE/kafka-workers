@@ -1,6 +1,4 @@
-package com.rtbhouse.kafka.workers.impl.record.weigher;
-
-import com.rtbhouse.kafka.workers.api.record.Weigher;
+package com.rtbhouse.kafka.workers.api.record.weigher;
 
 public class ByteArrayWeigher implements Weigher<byte[]> {
 

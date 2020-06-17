@@ -1,4 +1,4 @@
-package com.rtbhouse.kafka.workers.api.record;
+package com.rtbhouse.kafka.workers.api.record.weigher;
 
 public interface Weigher<T> {
 

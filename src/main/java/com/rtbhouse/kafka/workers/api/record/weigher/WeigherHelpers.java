@@ -1,4 +1,4 @@
-package com.rtbhouse.kafka.workers.impl.record.weigher;
+package com.rtbhouse.kafka.workers.api.record.weigher;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.reflect.Modifier.isStatic;
