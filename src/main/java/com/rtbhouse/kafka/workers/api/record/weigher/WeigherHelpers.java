@@ -13,6 +13,10 @@ public class WeigherHelpers {
 
     private static final Logger logger = LoggerFactory.getLogger(WeigherHelpers.class);
 
+    private static final long HEAP_MAX_SIZE = Runtime.getRuntime().maxMemory();
+
+    private static final long LARGE_HEAP_SIZE = 32L * 1024 * 1024 * 1024;
+
     private static final Map<Class<?>, Integer> TYPE_SIZES = Map.of(
             Boolean.TYPE, 1,
             Byte.TYPE, Byte.BYTES,
@@ -24,9 +28,10 @@ public class WeigherHelpers {
             Double.TYPE, Double.BYTES
     );
 
-    public static int shallowSize(Class<?> clazz, String path) {
+    //TODO: remove path arg and debug
+    public static int estimateInstanceSize(Class<?> clazz, String path) {
         checkState(!clazz.isPrimitive());
-        int header = clazz.isArray() ? 16 + 4 : 16;
+        int header = headerSize(clazz);
         int fieldsSize  = 0;
         int fieldsShallowSize = 0;
         for (Field field : clazz.getDeclaredFields()) {
@@ -38,7 +43,7 @@ public class WeigherHelpers {
                 logger.debug("{} fieldSize = {}", fieldPath, fieldSize);
                 fieldsSize += fieldSize;
                 if (!fieldType.isPrimitive()) {
-                    fieldsShallowSize += shallowSize(fieldType, fieldPath);
+                    fieldsShallowSize += estimateInstanceSize(fieldType, fieldPath);
                 }
             }
         }
@@ -47,6 +52,14 @@ public class WeigherHelpers {
         int totalSize = header + fieldsSize + padding + fieldsShallowSize;
         logger.debug("{}: {} + {} + {} + {} = {}", path, header, fieldsSize, padding, fieldsShallowSize, totalSize);
         return totalSize;
+    }
+
+    private static int headerSize(Class<?> clazz) {
+        return (clazz.isArray() && isHeapLarge()) ? 24 : 16;
+    }
+
+    private static boolean isHeapLarge() {
+        return HEAP_MAX_SIZE >= LARGE_HEAP_SIZE;
     }
 
     private static int padding(int size) {
@@ -59,8 +72,7 @@ public class WeigherHelpers {
         if (clazz.isPrimitive()) {
             return TYPE_SIZES.get(clazz);
         } else {
-            //TODO: for heap >32G 8 bytes
-            return 4;
+            return isHeapLarge() ? 8 : 4;
         }
     }
 }

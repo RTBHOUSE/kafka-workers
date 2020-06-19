@@ -29,9 +29,14 @@ public class QueuesManager<K, V> implements Partitioned {
 
     private final WorkersConfig config;
 
+    /**
+     * Each individual queue may exceed its limit with some margin. In the worst case scenario a single margin
+     * may have a size of consumer.kafka.max.partition.fetch.bytes. That's why we have to pause all partitions
+     * when the total limit is exceeded.
+     */
     private final long queueTotalSizeBytesToPause;
-    private long queueSizeBytesToPause;
-    private long queueSizeBytesToResume;
+    private volatile long queueSizeBytesToPause;
+    private volatile long queueSizeBytesToResume;
 
     private final WorkersMetrics metrics;
     private final SubpartitionSupplier<K, V> subpartitionSupplier;

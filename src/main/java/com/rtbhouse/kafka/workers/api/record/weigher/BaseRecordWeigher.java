@@ -9,10 +9,10 @@ import com.rtbhouse.kafka.workers.api.record.WorkerRecord;
 
 public class BaseRecordWeigher<K, V> implements RecordWeigher<K, V> {
 
-    private static final int RECORD_SHALLOW_SIZE = WeigherHelpers.shallowSize(WorkerRecord.class, "(WorkerRecord)")
-            + WeigherHelpers.shallowSize(RecordHeaders.class, "(RecordHeaders)");
+    private static final int RECORD_INSTANCE_SIZE = WeigherHelpers.estimateInstanceSize(WorkerRecord.class, "(WorkerRecord)")
+            + WeigherHelpers.estimateInstanceSize(RecordHeaders.class, "(RecordHeaders)");
 
-    private static final int RECORD_HEADER_SHALLOW_SIZE = WeigherHelpers.shallowSize(RecordHeader.class, "(RecordHeader)");
+    private static final int RECORD_HEADER_INSTANCE_SIZE = WeigherHelpers.estimateInstanceSize(RecordHeader.class, "(RecordHeader)");
 
     private final Weigher<K> keyWeigher;
 
@@ -26,7 +26,8 @@ public class BaseRecordWeigher<K, V> implements RecordWeigher<K, V> {
     @Override
     public long weight(WorkerRecord<K, V> record) {
         // we don't care about padding
-        return RECORD_SHALLOW_SIZE
+        return RECORD_INSTANCE_SIZE
+                //TODO: Add only internal array sizes (in bytes) for key/value
                 + keyWeigher.weight(record.key())
                 + valueWeigher.weight(record.value())
                 + weight(record.headers());
@@ -35,7 +36,8 @@ public class BaseRecordWeigher<K, V> implements RecordWeigher<K, V> {
     private long weight(Headers headers) {
         long size = 0;
         for (Header header : headers) {
-            size += RECORD_HEADER_SHALLOW_SIZE
+            size += RECORD_HEADER_INSTANCE_SIZE
+                    //TODO: Add only internal array sizes (in bytes) for key/value
                     + StringWeigher.INSTANCE.weight(header.key())
                     + ByteArrayWeigher.INSTANCE.weight(header.value());
         }
@@ -43,7 +45,7 @@ public class BaseRecordWeigher<K, V> implements RecordWeigher<K, V> {
     }
 
     public static void main(String[] args) {
-        System.out.println(RECORD_SHALLOW_SIZE);
+        System.out.println(RECORD_INSTANCE_SIZE);
     }
 
 }

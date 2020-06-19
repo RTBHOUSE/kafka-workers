@@ -4,7 +4,7 @@ public class StringWeigher implements Weigher<String> {
 
     public static final StringWeigher INSTANCE = new StringWeigher();
 
-    private static final int STRING_SHALLOW_SIZE = WeigherHelpers.shallowSize(String.class, "(String)");
+    private static final int STRING_SHALLOW_SIZE = WeigherHelpers.estimateInstanceSize(String.class, "(String)");
 
     private StringWeigher() {
     }
