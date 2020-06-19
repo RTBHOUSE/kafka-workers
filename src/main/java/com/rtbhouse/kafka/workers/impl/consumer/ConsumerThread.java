@@ -23,7 +23,7 @@ import com.rtbhouse.kafka.workers.api.WorkersConfig;
 import com.rtbhouse.kafka.workers.api.WorkersException;
 import com.rtbhouse.kafka.workers.api.partitioner.WorkerSubpartition;
 import com.rtbhouse.kafka.workers.api.record.WorkerRecord;
-import com.rtbhouse.kafka.workers.api.record.weigher.Weigher;
+import com.rtbhouse.kafka.workers.api.record.weigher.RecordWeigher;
 import com.rtbhouse.kafka.workers.impl.AbstractWorkersThread;
 import com.rtbhouse.kafka.workers.impl.KafkaWorkersImpl;
 import com.rtbhouse.kafka.workers.impl.Partitioned;
@@ -47,7 +47,7 @@ public class ConsumerThread<K, V> extends AbstractWorkersThread implements Parti
     private final KafkaConsumer<K, V> consumer;
     private final ConsumerRebalanceListenerImpl<K, V> listener;
     private final OffsetCommitCallback commitCallback;
-    private final Weigher<WorkerRecord<K, V>> recordWeigher;
+    private final RecordWeigher<K, V> recordWeigher;
 
     private long commitTime = System.currentTimeMillis();
 
@@ -58,7 +58,7 @@ public class ConsumerThread<K, V> extends AbstractWorkersThread implements Parti
             QueuesManager<K, V> queuesManager,
             SubpartitionSupplier<K, V> subpartitionSupplier,
             OffsetsState offsetsState,
-            Weigher<WorkerRecord<K, V>> recordWeigher) {
+            RecordWeigher<K, V> recordWeigher) {
         super("consumer-thread", config, metrics, workers);
 
         this.consumerPollTimeout = Duration.ofMillis(config.getLong(WorkersConfig.CONSUMER_POLL_TIMEOUT_MS));

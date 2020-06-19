@@ -17,7 +17,7 @@ import org.slf4j.LoggerFactory;
 import com.rtbhouse.kafka.workers.api.WorkersConfig;
 import com.rtbhouse.kafka.workers.api.partitioner.WorkerSubpartition;
 import com.rtbhouse.kafka.workers.api.record.WorkerRecord;
-import com.rtbhouse.kafka.workers.api.record.weigher.Weigher;
+import com.rtbhouse.kafka.workers.api.record.weigher.RecordWeigher;
 import com.rtbhouse.kafka.workers.impl.Partitioned;
 import com.rtbhouse.kafka.workers.impl.metrics.WorkersMetrics;
 import com.rtbhouse.kafka.workers.impl.partitioner.SubpartitionSupplier;
@@ -36,7 +36,7 @@ public class QueuesManager<K, V> implements Partitioned {
     private final WorkersMetrics metrics;
     private final SubpartitionSupplier<K, V> subpartitionSupplier;
     private final TaskManager<K, V> taskManager;
-    private final Weigher<WorkerRecord<K, V>> recordWeigher;
+    private final RecordWeigher<K, V> recordWeigher;
 
     private final Map<WorkerSubpartition, RecordsQueue<K, V>> queues = new ConcurrentHashMap<>();
     private final Map<WorkerSubpartition, Long> sizesInBytes = new ConcurrentHashMap<>();
@@ -47,7 +47,7 @@ public class QueuesManager<K, V> implements Partitioned {
             WorkersMetrics metrics,
             SubpartitionSupplier<K, V> subpartitionSupplier,
             TaskManager<K, V> taskManager,
-            Weigher<WorkerRecord<K, V>> recordWeigher) {
+            RecordWeigher<K, V> recordWeigher) {
 
         this.config = config;
         this.metrics = metrics;
