@@ -92,7 +92,6 @@ public class QueuesManager<K, V> implements Partitioned {
         registeredSubpartitions.removeAll(subpartitions);
         for (WorkerSubpartition subpartition : subpartitions) {
             metrics.removeMetric(WorkersMetrics.QUEUE_SIZE_METRIC, subpartition.toString());
-            // TODO: why subpartitions are not removed here?
             queues.get(subpartition).clear();
             sizesInBytes.put(subpartition, 0L);
         }

@@ -7,12 +7,8 @@ import java.lang.reflect.Field;
 import java.util.Map;
 
 import org.apache.commons.lang3.reflect.FieldUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class WeigherHelpers {
-
-    private static final Logger logger = LoggerFactory.getLogger(WeigherHelpers.class);
 
     private static final long HEAP_MAX_SIZE = Runtime.getRuntime().maxMemory();
 
@@ -29,30 +25,23 @@ public class WeigherHelpers {
             Double.TYPE, Double.BYTES
     );
 
-    //TODO: remove path arg and debug
-    public static int estimateInstanceSize(Class<?> clazz, String path) {
+    public static int estimateInstanceSize(Class<?> clazz) {
         checkState(!clazz.isPrimitive());
         int shallowSize  = headerSize(clazz);
         int fieldsInstanceSize = 0;
         for (Field field : FieldUtils.getAllFieldsList(clazz)) {
             if (!isStatic(field.getModifiers())) {
-                String fieldName = field.getName();
                 Class<?> fieldType = field.getType();
-                String isEnumPrefix = fieldType.isEnum() ? "enum." : "";
-                String fieldPath = path + String.format(".%s(%s%s)", fieldName, isEnumPrefix, fieldType.getSimpleName());
                 int fieldSize = fieldSize(fieldType);
-                logger.debug("{} fieldSize = {}", fieldPath, fieldSize);
                 shallowSize += fieldSize;
                 if (!fieldType.isPrimitive() && !fieldType.isEnum()) {
-                    fieldsInstanceSize += estimateInstanceSize(fieldType, fieldPath);
+                    fieldsInstanceSize += estimateInstanceSize(fieldType);
                 }
             }
         }
 
         int padding = padding(shallowSize);
-        int totalSize = shallowSize + padding + fieldsInstanceSize;
-        logger.debug("{}: {} + {} + {} = {}", path, shallowSize, padding, fieldsInstanceSize, totalSize);
-        return totalSize;
+        return shallowSize + padding + fieldsInstanceSize;
     }
 
     private static int headerSize(Class<?> clazz) {

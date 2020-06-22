@@ -25,7 +25,7 @@ public class WeigherHelperTest {
         Class<?> clazz = Class.forName(className);
 
         // when
-        int instanceSize = WeigherHelpers.estimateInstanceSize(clazz, "");
+        int instanceSize = WeigherHelpers.estimateInstanceSize(clazz);
 
         // then
         assertThat(instanceSize).isEqualTo(expectedSize);

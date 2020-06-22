@@ -11,21 +11,21 @@ import com.rtbhouse.kafka.workers.api.record.WorkerRecord;
 
 public class BaseRecordWeigher<K, V> implements RecordWeigher<K, V> {
 
-    private static final int OBJECT_INSTANCE_SIZE = WeigherHelpers.estimateInstanceSize(Object.class, "(Object)");
+    private static final int OBJECT_INSTANCE_SIZE = WeigherHelpers.estimateInstanceSize(Object.class);
 
-    private static final int RECORD_HEADERS_INSTANCE_SIZE = WeigherHelpers.estimateInstanceSize(RecordHeaders.class, "(RecordHeaders)");
+    private static final int RECORD_HEADERS_INSTANCE_SIZE = WeigherHelpers.estimateInstanceSize(RecordHeaders.class);
 
-    private static final int RECORD_INSTANCE_SIZE = WeigherHelpers.estimateInstanceSize(WorkerRecord.class, "(WorkerRecord)")
+    private static final int RECORD_INSTANCE_SIZE = WeigherHelpers.estimateInstanceSize(WorkerRecord.class)
             // subtract fields which size will be added separately
             - OBJECT_INSTANCE_SIZE // record.key
             - OBJECT_INSTANCE_SIZE // record.value
             - StringWeigher.STRING_INSTANCE_SIZE // record.topic
-            - WeigherHelpers.estimateInstanceSize(Headers.class, "(Headers)"); // record.headers
+            - WeigherHelpers.estimateInstanceSize(Headers.class); // record.headers
 
-    private static final int RECORD_HEADER_INSTANCE_SIZE = WeigherHelpers.estimateInstanceSize(RecordHeader.class, "(RecordHeader)")
+    private static final int RECORD_HEADER_INSTANCE_SIZE = WeigherHelpers.estimateInstanceSize(RecordHeader.class)
             // subtract fields which size will be added separately
             - StringWeigher.STRING_INSTANCE_SIZE // key
-            - WeigherHelpers.estimateInstanceSize(ByteBuffer.class, "(ByteBuffer)") // valueBuffer (null)
+            - WeigherHelpers.estimateInstanceSize(ByteBuffer.class) // valueBuffer (null)
             - ByteArrayWeigher.BYTE_ARRAY_INSTANCE_SIZE; // value
 
     private final Weigher<K> keyWeigher;
@@ -57,10 +57,4 @@ public class BaseRecordWeigher<K, V> implements RecordWeigher<K, V> {
         }
         return size;
     }
-
-    //TODO: remove
-    public static void main(String[] args) {
-        System.out.println(RECORD_INSTANCE_SIZE);
-    }
-
 }
