@@ -13,11 +13,12 @@ public class WeigherHelperTest {
 
     @Test
     @Parameters({
+            "java.lang.Object, 16",
             "java.lang.Byte, 24",
             "java.lang.Long, 24",
             "java.lang.String, 48",
             "org.apache.kafka.common.header.internals.RecordHeaders, 40",
-            "com.rtbhouse.kafka.workers.api.record.WorkerRecord, 328"
+            "com.rtbhouse.kafka.workers.api.record.WorkerRecord, 256"
     })
     public void shouldEstimateInstanceSize(String className, int expectedSize) throws ClassNotFoundException {
         // given

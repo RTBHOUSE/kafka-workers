@@ -6,6 +6,7 @@ import static java.lang.reflect.Modifier.isStatic;
 import java.lang.reflect.Field;
 import java.util.Map;
 
+import org.apache.commons.lang3.reflect.FieldUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,26 +32,26 @@ public class WeigherHelpers {
     //TODO: remove path arg and debug
     public static int estimateInstanceSize(Class<?> clazz, String path) {
         checkState(!clazz.isPrimitive());
-        int header = headerSize(clazz);
-        int fieldsSize  = 0;
-        int fieldsShallowSize = 0;
-        for (Field field : clazz.getDeclaredFields()) {
+        int shallowSize  = headerSize(clazz);
+        int fieldsInstanceSize = 0;
+        for (Field field : FieldUtils.getAllFieldsList(clazz)) {
             if (!isStatic(field.getModifiers())) {
                 String fieldName = field.getName();
                 Class<?> fieldType = field.getType();
-                String fieldPath = path + String.format(".%s(%s)", fieldName, fieldType.getSimpleName());
+                String isEnumPrefix = fieldType.isEnum() ? "enum." : "";
+                String fieldPath = path + String.format(".%s(%s%s)", fieldName, isEnumPrefix, fieldType.getSimpleName());
                 int fieldSize = fieldSize(fieldType);
                 logger.debug("{} fieldSize = {}", fieldPath, fieldSize);
-                fieldsSize += fieldSize;
-                if (!fieldType.isPrimitive()) {
-                    fieldsShallowSize += estimateInstanceSize(fieldType, fieldPath);
+                shallowSize += fieldSize;
+                if (!fieldType.isPrimitive() && !fieldType.isEnum()) {
+                    fieldsInstanceSize += estimateInstanceSize(fieldType, fieldPath);
                 }
             }
         }
 
-        int padding = padding(header + fieldsSize);
-        int totalSize = header + fieldsSize + padding + fieldsShallowSize;
-        logger.debug("{}: {} + {} + {} + {} = {}", path, header, fieldsSize, padding, fieldsShallowSize, totalSize);
+        int padding = padding(shallowSize);
+        int totalSize = shallowSize + padding + fieldsInstanceSize;
+        logger.debug("{}: {} + {} + {} = {}", path, shallowSize, padding, fieldsInstanceSize, totalSize);
         return totalSize;
     }
 
@@ -74,5 +75,9 @@ public class WeigherHelpers {
         } else {
             return isHeapLarge() ? 8 : 4;
         }
+    }
+
+    static int paddedSize(int size) {
+        return size + padding(size);
     }
 }

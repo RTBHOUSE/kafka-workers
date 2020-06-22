@@ -101,7 +101,7 @@ public class QueuesManager<K, V> implements Partitioned {
 
     public WorkerRecord<K, V> poll(WorkerSubpartition subpartition) {
         WorkerRecord<K, V> record = queues.get(subpartition).poll();
-        sizesInBytes.compute(subpartition, (key, value) -> value - recordWeigher.weight(record));
+        sizesInBytes.compute(subpartition, (key, value) -> value - recordWeigher.weigh(record));
         return record;
     }
 
@@ -111,7 +111,7 @@ public class QueuesManager<K, V> implements Partitioned {
 
     public void push(WorkerSubpartition subpartition, WorkerRecord<K, V> record) {
         queues.get(subpartition).add(record);
-        sizesInBytes.compute(subpartition, (key, value) -> value + recordWeigher.weight(record));
+        sizesInBytes.compute(subpartition, (key, value) -> value + recordWeigher.weigh(record));
         taskManager.notifyTask(subpartition);
     }
 
