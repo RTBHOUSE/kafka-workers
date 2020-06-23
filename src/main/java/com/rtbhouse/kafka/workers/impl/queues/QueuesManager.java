@@ -1,5 +1,7 @@
 package com.rtbhouse.kafka.workers.impl.queues;
 
+import static com.rtbhouse.kafka.workers.impl.metrics.WorkersMetrics.QUEUES_TOTAL_SIZE_LIMIT_METRIC;
+import static com.rtbhouse.kafka.workers.impl.metrics.WorkersMetrics.QUEUE_SIZE_LIMIT_METRIC;
 import static java.util.stream.Collectors.toUnmodifiableSet;
 
 import java.util.Collection;
@@ -29,12 +31,7 @@ public class QueuesManager<K, V> implements Partitioned {
 
     private final WorkersConfig config;
 
-    /**
-     * Each individual queue may exceed its limit with some margin. In the worst case scenario a single margin
-     * may have a size of consumer.kafka.max.partition.fetch.bytes. That's why we have to pause all partitions
-     * when the total limit is exceeded.
-     */
-    private final long queueTotalSizeBytesToPause;
+    private final long queuesTotalSizeBytes;
     private volatile long queueSizeBytesToPause;
     private volatile long queueSizeBytesToResume;
 
@@ -59,7 +56,10 @@ public class QueuesManager<K, V> implements Partitioned {
         this.subpartitionSupplier = subpartitionSupplier;
         this.taskManager = taskManager;
         this.recordWeigher = recordWeigher;
-        this.queueTotalSizeBytesToPause = (long)(Runtime.getRuntime().maxMemory() * config.getQueueTotalSizeBytesHeapRatio());
+        this.queuesTotalSizeBytes = (long)(Runtime.getRuntime().maxMemory() * config.getQueueTotalSizeBytesHeapRatio());
+
+        this.metrics.addQueuesManagerMetrics(this);
+        this.metrics.recordSensor(QUEUES_TOTAL_SIZE_LIMIT_METRIC, queuesTotalSizeBytes);
     }
 
     @Override
@@ -69,21 +69,22 @@ public class QueuesManager<K, V> implements Partitioned {
         for (WorkerSubpartition subpartition : subpartitions) {
             queues.put(subpartition, new RecordsQueue<>());
             sizesInBytes.put(subpartition, 0L);
-            metrics.addSizeMetric(WorkersMetrics.QUEUE_SIZE_METRIC, subpartition.toString(), queues.get(subpartition));
         }
         computeQueueSizeToPauseAndResume();
     }
 
     private void computeQueueSizeToPauseAndResume() {
         int numQueues = Math.max(1, registeredSubpartitions.size());
-        queueSizeBytesToPause = queueTotalSizeBytesToPause / numQueues;
+        queueSizeBytesToPause = queuesTotalSizeBytes / numQueues;
         queueSizeBytesToResume = (long)(config.getDouble(WorkersConfig.QUEUE_RESUME_RATIO) * queueSizeBytesToPause);
 
         int mega = 1024 * 1024;
         logger.info("queueTotalSizeBytesToPause = {} [{} MiB], queueSizeBytesToPause = {} [{} MiB], queueSizeBytesToResume = {} [{} MiB]",
-                queueTotalSizeBytesToPause, queueTotalSizeBytesToPause / mega,
+                queuesTotalSizeBytes, queuesTotalSizeBytes / mega,
                 queueSizeBytesToPause, queueSizeBytesToPause / mega,
                 queueSizeBytesToResume, queueSizeBytesToResume / mega);
+
+        metrics.recordSensor(QUEUE_SIZE_LIMIT_METRIC, queueSizeBytesToPause);
     }
 
     @Override
@@ -91,7 +92,6 @@ public class QueuesManager<K, V> implements Partitioned {
         List<WorkerSubpartition> subpartitions = subpartitionSupplier.subpartitions(topicPartitions);
         registeredSubpartitions.removeAll(subpartitions);
         for (WorkerSubpartition subpartition : subpartitions) {
-            metrics.removeMetric(WorkersMetrics.QUEUE_SIZE_METRIC, subpartition.toString());
             queues.get(subpartition).clear();
             sizesInBytes.put(subpartition, 0L);
         }
@@ -117,10 +117,15 @@ public class QueuesManager<K, V> implements Partitioned {
     public Set<TopicPartition> getPartitionsToPause(Set<TopicPartition> assigned, Set<TopicPartition> paused) {
         Set<TopicPartition> partitionsToPause = new HashSet<>();
         long totalSizeBytes = getTotalSizeInBytes();
-        if (totalSizeBytes >= queueTotalSizeBytesToPause) {
+        /*
+          Each individual queue may exceed its limit with some margin. In the worst case scenario a single margin
+          may have a size of consumer.kafka.max.partition.fetch.bytes. That's why we pause all partitions when
+          the total limit is exceeded to prevent OOME.
+         */
+        if (totalSizeBytes >= queuesTotalSizeBytes) {
             logger.warn("total size in bytes: {} exceeded (limit: {} {})",
-                    totalSizeBytes, queueTotalSizeBytesToPause,
-                    diffPctString(totalSizeBytes, queueTotalSizeBytesToPause));
+                    totalSizeBytes, queuesTotalSizeBytes,
+                    diffPctString(totalSizeBytes, queuesTotalSizeBytes));
             partitionsToPause.addAll(assigned);
             partitionsToPause.removeAll(paused);
             return partitionsToPause;
@@ -142,7 +147,7 @@ public class QueuesManager<K, V> implements Partitioned {
     }
 
     public Set<TopicPartition> getPartitionsToResume(Set<TopicPartition> pausedPartitions) {
-        if (getTotalSizeInBytes() >= queueTotalSizeBytesToPause) {
+        if (getTotalSizeInBytes() >= queuesTotalSizeBytes) {
             return Collections.emptySet();
         }
 
@@ -156,7 +161,7 @@ public class QueuesManager<K, V> implements Partitioned {
                 .allMatch(subpartition -> sizesInBytes.get(subpartition) <= queueSizeBytesToResume);
     }
 
-    private long getTotalSizeInBytes() {
+    public long getTotalSizeInBytes() {
         return sizesInBytes.values().stream().mapToLong(Long::longValue).sum();
     }
 }
