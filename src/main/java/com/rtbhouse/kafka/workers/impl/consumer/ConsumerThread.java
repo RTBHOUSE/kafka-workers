@@ -23,6 +23,7 @@ import com.rtbhouse.kafka.workers.api.WorkersConfig;
 import com.rtbhouse.kafka.workers.api.WorkersException;
 import com.rtbhouse.kafka.workers.api.partitioner.WorkerSubpartition;
 import com.rtbhouse.kafka.workers.api.record.WorkerRecord;
+import com.rtbhouse.kafka.workers.api.record.weigher.RecordWeigher;
 import com.rtbhouse.kafka.workers.impl.AbstractWorkersThread;
 import com.rtbhouse.kafka.workers.impl.KafkaWorkersImpl;
 import com.rtbhouse.kafka.workers.impl.Partitioned;
@@ -46,6 +47,7 @@ public class ConsumerThread<K, V> extends AbstractWorkersThread implements Parti
     private final KafkaConsumer<K, V> consumer;
     private final ConsumerRebalanceListenerImpl<K, V> listener;
     private final OffsetCommitCallback commitCallback;
+    private final RecordWeigher<K, V> recordWeigher;
 
     private long commitTime = System.currentTimeMillis();
 
@@ -55,7 +57,8 @@ public class ConsumerThread<K, V> extends AbstractWorkersThread implements Parti
             KafkaWorkersImpl<K, V> workers,
             QueuesManager<K, V> queuesManager,
             SubpartitionSupplier<K, V> subpartitionSupplier,
-            OffsetsState offsetsState) {
+            OffsetsState offsetsState,
+            RecordWeigher<K, V> recordWeigher) {
         super("consumer-thread", config, metrics, workers);
 
         this.consumerPollTimeout = Duration.ofMillis(config.getLong(WorkersConfig.CONSUMER_POLL_TIMEOUT_MS));
@@ -68,6 +71,7 @@ public class ConsumerThread<K, V> extends AbstractWorkersThread implements Parti
         this.consumer = new KafkaConsumer<>(config.getConsumerConfigs());
         this.listener = new ConsumerRebalanceListenerImpl<>(workers);
         this.commitCallback = new OffsetCommitCallbackImpl(config, this, offsetsState, metrics);
+        this.recordWeigher = recordWeigher;
     }
 
     @Override
@@ -97,7 +101,7 @@ public class ConsumerThread<K, V> extends AbstractWorkersThread implements Parti
             WorkerSubpartition subpartition = subpartitionSupplier.subpartition(record);
             WorkerRecord<K, V> workerRecord = new WorkerRecord<>(record, subpartition.subpartition());
             queuesManager.push(subpartition, workerRecord);
-            pollRecordsTotalSize += workerRecord.size();
+            pollRecordsTotalSize += recordWeigher.weigh(workerRecord);
             updateInputRecordMetrics(workerRecord);
         }
         metrics.recordSensor(WorkersMetrics.KAFKA_POLL_RECORDS_COUNT_SENSOR, records.count());
@@ -129,7 +133,7 @@ public class ConsumerThread<K, V> extends AbstractWorkersThread implements Parti
 
     private void updateInputRecordMetrics(WorkerRecord<K, V> workerRecord) {
         metrics.recordSensor(WorkersMetrics.CONSUMED_OFFSET_METRIC, workerRecord.topicPartition(), workerRecord.offset());
-        metrics.recordSensor(WorkersMetrics.INPUT_RECORDS_SIZE_SENSOR, workerRecord.size());
+        metrics.recordSensor(WorkersMetrics.INPUT_RECORDS_SIZE_SENSOR, recordWeigher.weigh(workerRecord));
     }
 
     private void addConsumedRanges(ConsumerRecords<K, V> records) {

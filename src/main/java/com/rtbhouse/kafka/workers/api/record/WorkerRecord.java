@@ -58,7 +58,7 @@ public class WorkerRecord<K, V> {
         return record.value();
     }
 
-    public int size() {
+    public int serializedSize() {
         return record.serializedKeySize() + record.serializedValueSize();
     }
 

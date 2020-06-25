@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableList;
 import com.rtbhouse.kafka.workers.api.WorkersConfig;
 import com.rtbhouse.kafka.workers.api.partitioner.WorkerSubpartition;
 import com.rtbhouse.kafka.workers.impl.offsets.DefaultOffsetsState;
+import com.rtbhouse.kafka.workers.impl.queues.QueuesManager;
 import com.rtbhouse.kafka.workers.impl.task.WorkerThread;
 
 public class WorkersMetrics {
@@ -45,7 +46,9 @@ public class WorkersMetrics {
     public static final String PROCESSING_OFFSET_METRIC = "worker-thread.processing-offset";
     public static final String PROCESSED_OFFSET_METRIC = "worker-thread.processed-offset";
 
-    public static final String QUEUE_SIZE_METRIC = "queues-manager.queue-size";
+    public static final String QUEUES_TOTAL_SIZE_LIMIT_METRIC = "queues-manager.queues-total-size-limit.bytes";
+    public static final String QUEUES_TOTAL_SIZE_METRIC = "queues-manager.queues-total-size.bytes";
+    public static final String QUEUE_SIZE_LIMIT_METRIC = "queues-manager.queue-size-limit.bytes";
 
     public static final String WORKER_THREAD_METRIC_GROUP = "worker-threads";
     public static final String WORKER_THREAD_COUNT_METRIC_NAME = "count";
@@ -231,5 +234,12 @@ public class WorkersMetrics {
     public void removeOffsetsStateMaxMetrics(TopicPartition partition) {
         String group = offsetsStateMaxPartitionGroup(partition);
         ALL_OFFSETS_STATE_METRIC_NAMES.forEach(name -> metrics.removeMetric(metrics.metricName(name, group)));
+    }
+
+    public <K, V> void addQueuesManagerMetrics(QueuesManager<K, V> queuesManager) {
+        addSensor(QUEUES_TOTAL_SIZE_LIMIT_METRIC);
+        addSensor(QUEUE_SIZE_LIMIT_METRIC);
+        metrics.addMetric(metrics.metricName(QUEUES_TOTAL_SIZE_METRIC, ""),
+                (conf, now) -> queuesManager.getTotalSizeInBytes());
     }
 }

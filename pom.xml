@@ -7,7 +7,7 @@
     <packaging>jar</packaging>
 
     <name>kafka-workers</name>
-    <version>1.0.15</version>
+    <version>1.0.16-SNAPSHOT</version>
     <url>https://github.com/RTBHOUSE/kafka-workers</url>
 
     <description>Kafka's client library.</description>
@@ -73,6 +73,7 @@
         <maven.clean.plugin.version>3.0.0</maven.clean.plugin.version>
         <apache.kafka.version>2.3.0</apache.kafka.version>
         <google.guava.version>27.0.1-jre</google.guava.version>
+        <apache.commons.lang.version>3.10</apache.commons.lang.version>
         <junit.version>4.12</junit.version>
         <mockito.version>2.23.4</mockito.version>
         <assertj.version>3.8.0</assertj.version>
@@ -131,6 +132,12 @@
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
             <version>${google.guava.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+            <version>${apache.commons.lang.version}</version>
         </dependency>
 
         <!-- TEST -->
