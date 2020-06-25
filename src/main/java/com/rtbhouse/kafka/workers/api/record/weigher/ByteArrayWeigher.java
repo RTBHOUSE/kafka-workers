@@ -10,8 +10,14 @@ public class ByteArrayWeigher implements Weigher<byte[]> {
     private ByteArrayWeigher() {
     }
 
+    /**
+     * @return weight in bytes the given byte array object takes on the heap
+     */
     @Override
     public long weigh(byte[] byteArray) {
+        if (byteArray == null) {
+            return 0;
+        }
         return weight(byteArray.length);
     }
 

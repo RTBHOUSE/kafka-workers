@@ -9,8 +9,14 @@ public class StringWeigher implements Weigher<String> {
     private StringWeigher() {
     }
 
+    /**
+     * @return weight in bytes the given String object takes on the heap (assuming LATIN1 coder)
+     */
     @Override
     public long weigh(String s) {
+        if (s == null) {
+            return 0;
+        }
         // we assume LATIN1 coder, thus s.length() == s.value.length
         return STRING_INSTANCE_SIZE
                 - ByteArrayWeigher.BYTE_ARRAY_INSTANCE_SIZE

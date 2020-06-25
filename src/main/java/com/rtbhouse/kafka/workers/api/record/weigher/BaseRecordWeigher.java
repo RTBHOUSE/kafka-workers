@@ -9,6 +9,11 @@ import org.apache.kafka.common.header.internals.RecordHeaders;
 
 import com.rtbhouse.kafka.workers.api.record.WorkerRecord;
 
+/**
+ * This base class can be helpful in implementing a {@link RecordWeigher}.
+ * Its {@link BaseRecordWeigher#BaseRecordWeigher(Weigher, Weigher) constructor} takes weighers for keys and values.
+ * Using {@link StringWeigher}, {@link ByteArrayWeigher} classes is recommended there.
+ */
 public class BaseRecordWeigher<K, V> implements RecordWeigher<K, V> {
 
     private static final int OBJECT_INSTANCE_SIZE = WeigherHelpers.estimateInstanceSize(Object.class);

@@ -25,6 +25,14 @@ public class WeigherHelpers {
             Double.TYPE, Double.BYTES
     );
 
+    /**
+     * This method for the given class computes estimated deep size of an instance of this class.
+     * It counts all non-static fields assuming they are not null. Arrays are counted as empty however.
+     * When a field is of an abstract or interface type no specific implementation is considered in computations.
+     *
+     * @param clazz class for which instance size has to be computed
+     * @return estimated size in bytes the instance of the given class takes on heap
+     */
     public static int estimateInstanceSize(Class<?> clazz) {
         checkState(!clazz.isPrimitive());
         int shallowSize  = headerSize(clazz);
