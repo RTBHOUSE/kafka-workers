@@ -114,12 +114,12 @@ public class WorkersConfig extends AbstractConfig {
     private static final long PUNCTUATOR_INTERVAL_MS_DEFAULT = Duration.of(1, ChronoUnit.SECONDS).toMillis();
 
     public static final String RECORD_WEIGHER_CLASS = "record.weigher";
-    private static final String RECORD_WEIGHER_CLASS_DOC = "Record weigher class measuring size in bytes for each individual record.";
+    private static final String RECORD_WEIGHER_CLASS_DOC = "Record weigher class measuring size in bytes for each individual input record.";
     private static final Class<?> RECORD_WEIGHER_CLASS_DEFAULT = SimpleRecordWeigher.class;
 
     public static final String QUEUE_TOTAL_SIZE_HEAP_RATIO = "queue.total.size.heap.ratio";
     private static final String QUEUE_TOTAL_SIZE_HEAP_RATIO_DOC = "Ratio of queue total size to heap size.";
-    private static final double QUEUE_TOTAL_SIZE_HEAP_RATIO_DEFAULT = 0.6;
+    private static final double QUEUE_TOTAL_SIZE_HEAP_RATIO_DEFAULT = 0.5;
 
     /**
      * The minimum ratio of used to total queue size for partition resuming.
