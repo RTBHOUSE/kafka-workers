@@ -1,6 +1,7 @@
 package com.rtbhouse.kafka.workers.api.record.weigher;
 
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import org.apache.commons.lang3.StringUtils;
@@ -22,10 +23,8 @@ public class BaseRecordWeigherTest {
     private static final String EMPTY_TOPIC = "";
     private static final int SOME_PARTITION = 0;
     private static final long SOME_OFFSET = 0L;
-    private static final long SOME_TIMESTAMP = 0L;
     private static final int SOME_SUBPARTITION = 0;
     private static final char SOME_CHAR = 'A';
-
 
     @Test
     @Parameters({
@@ -73,7 +72,6 @@ public class BaseRecordWeigherTest {
         assertThat(recordWeigher.weigh(workerRecord)).isEqualTo(expectedWeight);
     }
 
-
     @Test
     @Parameters({
             "392, 1:1",
@@ -98,13 +96,19 @@ public class BaseRecordWeigherTest {
 
     private WorkerRecord<byte[], byte[]> workerRecordWithBytes(int keyLength, int valueLength) {
         ConsumerRecord<byte[], byte[]> consumerRecord = new ConsumerRecord<>(EMPTY_TOPIC, SOME_PARTITION, SOME_OFFSET,
+                ConsumerRecord.NO_TIMESTAMP, TimestampType.NO_TIMESTAMP_TYPE, ConsumerRecord.NULL_CHECKSUM,
+                keyLength, valueLength,
                 new byte[keyLength], new byte[valueLength]);
         return new WorkerRecord<>(consumerRecord, SOME_SUBPARTITION);
     }
 
     private WorkerRecord<String, String> workerRecordWithStrings(int keyLength, int valueLength) {
+        String key = StringUtils.repeat(SOME_CHAR, keyLength);
+        String value = StringUtils.repeat(SOME_CHAR, valueLength);
         ConsumerRecord<String, String> consumerRecord = new ConsumerRecord<>(EMPTY_TOPIC, SOME_PARTITION, SOME_OFFSET,
-                StringUtils.repeat(SOME_CHAR, keyLength), StringUtils.repeat(SOME_CHAR, valueLength));
+                ConsumerRecord.NO_TIMESTAMP, TimestampType.NO_TIMESTAMP_TYPE, ConsumerRecord.NULL_CHECKSUM,
+                key.getBytes(UTF_8).length, value.getBytes(UTF_8).length,
+                key, value);
         return new WorkerRecord<>(consumerRecord, SOME_SUBPARTITION);
     }
 
@@ -114,9 +118,9 @@ public class BaseRecordWeigherTest {
             String[] split = headerStr.split(":");
             recordHeaders.add(new RecordHeader(split[0], split[1].getBytes(ISO_8859_1)));
         }
-        ConsumerRecord<byte[], byte[]> consumerRecord = new ConsumerRecord<>(EMPTY_TOPIC, SOME_PARTITION,
-                SOME_OFFSET, SOME_TIMESTAMP,
-                TimestampType.NO_TIMESTAMP_TYPE, (long) ConsumerRecord.NULL_CHECKSUM, 0, 0,
+        ConsumerRecord<byte[], byte[]> consumerRecord = new ConsumerRecord<>(EMPTY_TOPIC, SOME_PARTITION, SOME_OFFSET,
+                ConsumerRecord.NO_TIMESTAMP, TimestampType.NO_TIMESTAMP_TYPE, (long) ConsumerRecord.NULL_CHECKSUM,
+                0, 0,
                 new byte[0], new byte[0],
                 recordHeaders);
 
