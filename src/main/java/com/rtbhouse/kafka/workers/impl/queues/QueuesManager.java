@@ -19,10 +19,10 @@ import org.slf4j.LoggerFactory;
 import com.rtbhouse.kafka.workers.api.WorkersConfig;
 import com.rtbhouse.kafka.workers.api.partitioner.WorkerSubpartition;
 import com.rtbhouse.kafka.workers.api.record.WorkerRecord;
-import com.rtbhouse.kafka.workers.api.record.weigher.RecordWeigher;
 import com.rtbhouse.kafka.workers.impl.Partitioned;
 import com.rtbhouse.kafka.workers.impl.metrics.WorkersMetrics;
 import com.rtbhouse.kafka.workers.impl.partitioner.SubpartitionSupplier;
+import com.rtbhouse.kafka.workers.impl.record.weigher.RecordWeigher;
 import com.rtbhouse.kafka.workers.impl.task.TaskManager;
 
 public class QueuesManager<K, V> implements Partitioned {

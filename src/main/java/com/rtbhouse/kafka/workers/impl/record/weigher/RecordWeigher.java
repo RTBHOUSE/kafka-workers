@@ -1,4 +1,6 @@
-package com.rtbhouse.kafka.workers.api.record.weigher;
+package com.rtbhouse.kafka.workers.impl.record.weigher;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.nio.ByteBuffer;
 
@@ -8,13 +10,12 @@ import org.apache.kafka.common.header.internals.RecordHeader;
 import org.apache.kafka.common.header.internals.RecordHeaders;
 
 import com.rtbhouse.kafka.workers.api.record.WorkerRecord;
+import com.rtbhouse.kafka.workers.api.record.weigher.ByteArrayWeigher;
+import com.rtbhouse.kafka.workers.api.record.weigher.StringWeigher;
+import com.rtbhouse.kafka.workers.api.record.weigher.Weigher;
+import com.rtbhouse.kafka.workers.api.record.weigher.WeigherHelpers;
 
-/**
- * This base class can be helpful in implementing a {@link RecordWeigher}.
- * Its {@link BaseRecordWeigher#BaseRecordWeigher(Weigher, Weigher) constructor} takes weighers for keys and values.
- * Using {@link StringWeigher}, {@link ByteArrayWeigher} classes is recommended there.
- */
-public class BaseRecordWeigher<K, V> implements RecordWeigher<K, V> {
+public final class RecordWeigher<K, V> implements Weigher<WorkerRecord<K, V>> {
 
     private static final int OBJECT_INSTANCE_SIZE = WeigherHelpers.estimateInstanceSize(Object.class);
 
@@ -37,9 +38,9 @@ public class BaseRecordWeigher<K, V> implements RecordWeigher<K, V> {
 
     private final Weigher<V> valueWeigher;
 
-    public BaseRecordWeigher(Weigher<K> keyWeigher, Weigher<V> valueWeigher) {
-        this.keyWeigher = keyWeigher;
-        this.valueWeigher = valueWeigher;
+    public RecordWeigher(Weigher<K> keyWeigher, Weigher<V> valueWeigher) {
+        this.keyWeigher = checkNotNull(keyWeigher);
+        this.valueWeigher = checkNotNull(valueWeigher);
     }
 
     @Override

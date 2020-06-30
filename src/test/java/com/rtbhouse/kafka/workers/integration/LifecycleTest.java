@@ -10,7 +10,7 @@ import java.util.Properties;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.kafka.common.serialization.BytesDeserializer;
+import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -21,6 +21,7 @@ import com.rtbhouse.kafka.workers.api.WorkersConfig;
 import com.rtbhouse.kafka.workers.api.WorkersException;
 import com.rtbhouse.kafka.workers.api.record.RecordStatusObserver;
 import com.rtbhouse.kafka.workers.api.record.WorkerRecord;
+import com.rtbhouse.kafka.workers.api.record.weigher.ByteArrayWeigher;
 import com.rtbhouse.kafka.workers.api.task.WorkerTask;
 import com.rtbhouse.kafka.workers.api.task.WorkerTaskFactory;
 import com.rtbhouse.kafka.workers.impl.errors.BadStatusException;
@@ -37,7 +38,9 @@ public class LifecycleTest {
     private static final Properties SERVER_PROPERTIES = TestProperties.serverProperties();
 
     private static final Properties WORKERS_PROPERTIES = TestProperties.workersProperties(
-            BytesDeserializer.class, BytesDeserializer.class, TOPIC);
+            ByteArrayDeserializer.class, ByteArrayDeserializer.class,
+            ByteArrayWeigher.class, ByteArrayWeigher.class,
+            TOPIC);
 
     @Rule
     public KafkaServerRule kafkaServerRule = new KafkaServerRule(SERVER_PROPERTIES);

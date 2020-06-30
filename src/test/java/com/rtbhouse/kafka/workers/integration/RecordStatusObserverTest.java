@@ -22,6 +22,7 @@ import com.rtbhouse.kafka.workers.api.WorkersConfig;
 import com.rtbhouse.kafka.workers.api.WorkersException;
 import com.rtbhouse.kafka.workers.api.record.RecordStatusObserver;
 import com.rtbhouse.kafka.workers.api.record.WorkerRecord;
+import com.rtbhouse.kafka.workers.api.record.weigher.StringWeigher;
 import com.rtbhouse.kafka.workers.api.task.WorkerTask;
 import com.rtbhouse.kafka.workers.api.task.WorkerTaskFactory;
 import com.rtbhouse.kafka.workers.impl.errors.ProcessingFailureException;
@@ -37,7 +38,9 @@ public class RecordStatusObserverTest {
 
     private static final Properties SERVER_PROPERTIES = TestProperties.serverProperties();
     private static final Properties WORKERS_PROPERTIES = TestProperties.workersProperties(
-            StringDeserializer.class, StringDeserializer.class, TOPIC);
+            StringDeserializer.class, StringDeserializer.class,
+            StringWeigher.class, StringWeigher.class,
+            TOPIC);
     static {
         WORKERS_PROPERTIES.put(WorkersConfig.CONSUMER_POLL_TIMEOUT_MS, 100L);
         WORKERS_PROPERTIES.put(WorkersConfig.CONSUMER_COMMIT_INTERVAL_MS, 100L);

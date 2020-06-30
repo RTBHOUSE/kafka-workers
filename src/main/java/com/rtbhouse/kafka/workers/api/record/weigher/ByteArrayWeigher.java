@@ -4,11 +4,7 @@ public class ByteArrayWeigher implements Weigher<byte[]> {
 
     public static final ByteArrayWeigher INSTANCE = new ByteArrayWeigher();
 
-    static final int BYTE_ARRAY_INSTANCE_SIZE = WeigherHelpers.estimateInstanceSize(byte[].class);
-
-
-    private ByteArrayWeigher() {
-    }
+    public static final int BYTE_ARRAY_INSTANCE_SIZE = WeigherHelpers.estimateInstanceSize(byte[].class);
 
     /**
      * @return weight in bytes the given byte array object takes on the heap

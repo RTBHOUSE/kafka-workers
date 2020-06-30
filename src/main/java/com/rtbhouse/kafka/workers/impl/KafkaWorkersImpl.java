@@ -30,7 +30,6 @@ import com.rtbhouse.kafka.workers.api.ShutdownCallback;
 import com.rtbhouse.kafka.workers.api.WorkersConfig;
 import com.rtbhouse.kafka.workers.api.WorkersException;
 import com.rtbhouse.kafka.workers.api.partitioner.WorkerPartitioner;
-import com.rtbhouse.kafka.workers.api.record.weigher.RecordWeigher;
 import com.rtbhouse.kafka.workers.api.task.WorkerTaskFactory;
 import com.rtbhouse.kafka.workers.impl.consumer.ConsumerThread;
 import com.rtbhouse.kafka.workers.impl.errors.BadStatusException;
@@ -40,6 +39,7 @@ import com.rtbhouse.kafka.workers.impl.offsets.OffsetsState;
 import com.rtbhouse.kafka.workers.impl.partitioner.SubpartitionSupplier;
 import com.rtbhouse.kafka.workers.impl.punctuator.PunctuatorThread;
 import com.rtbhouse.kafka.workers.impl.queues.QueuesManager;
+import com.rtbhouse.kafka.workers.impl.record.weigher.RecordWeigher;
 import com.rtbhouse.kafka.workers.impl.task.TaskManager;
 import com.rtbhouse.kafka.workers.impl.task.WorkerThread;
 
@@ -82,7 +82,7 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
         this.subpartitionSupplier = new SubpartitionSupplier<>(partitioner);
         this.callback = callback;
         this.offsetsState = new DefaultOffsetsState(this.config, this.metrics);;
-        this.recordWeigher = this.config.getRecordWeigher();
+        this.recordWeigher = new RecordWeigher<>(this.config.getRecordKeyWeigher(), this.config.getRecordValueWeigher());
     }
 
     public void start() {
