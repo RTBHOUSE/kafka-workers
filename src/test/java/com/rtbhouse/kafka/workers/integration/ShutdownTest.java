@@ -29,6 +29,7 @@ import org.junit.Test;
 
 import com.rtbhouse.kafka.workers.api.KafkaWorkers;
 import com.rtbhouse.kafka.workers.api.WorkersConfig;
+import com.rtbhouse.kafka.workers.api.record.weigher.StringWeigher;
 import com.rtbhouse.kafka.workers.api.task.WorkerTaskFactory;
 import com.rtbhouse.kafka.workers.integration.utils.KafkaServerRule;
 import com.rtbhouse.kafka.workers.integration.utils.RequiresKafkaServer;
@@ -43,7 +44,9 @@ public class ShutdownTest {
     private static final Duration WORKER_SHUTDOWN_TIMEOUT = Duration.ofSeconds(3);
 
     private static final Properties WORKERS_PROPERTIES = TestProperties.workersProperties(
-            StringDeserializer.class, StringDeserializer.class, SOME_TOPIC);
+            StringDeserializer.class, StringDeserializer.class,
+            StringWeigher.class, StringWeigher.class,
+            SOME_TOPIC);
     static {
         WORKERS_PROPERTIES.put(WorkersConfig.WORKER_THREADS_NUM, NUM_PARTITIONS);
         WORKERS_PROPERTIES.put(WorkersConfig.WORKER_SHUTDOWN_TIMEOUT_MS, WORKER_SHUTDOWN_TIMEOUT.toMillis());

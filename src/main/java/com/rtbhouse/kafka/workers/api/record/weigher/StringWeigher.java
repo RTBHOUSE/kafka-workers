@@ -4,10 +4,7 @@ public class StringWeigher implements Weigher<String> {
 
     public static final StringWeigher INSTANCE = new StringWeigher();
 
-    static final int STRING_INSTANCE_SIZE = WeigherHelpers.estimateInstanceSize(String.class);
-
-    private StringWeigher() {
-    }
+    public static final int STRING_INSTANCE_SIZE = WeigherHelpers.estimateInstanceSize(String.class);
 
     /**
      * @return weight in bytes the given String object takes on the heap (assuming LATIN1 coder)

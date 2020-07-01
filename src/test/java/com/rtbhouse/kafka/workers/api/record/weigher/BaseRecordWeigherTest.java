@@ -13,6 +13,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import com.rtbhouse.kafka.workers.api.record.WorkerRecord;
+import com.rtbhouse.kafka.workers.impl.record.weigher.RecordWeigher;
 
 import junitparams.JUnitParamsRunner;
 import junitparams.Parameters;
@@ -42,7 +43,7 @@ public class BaseRecordWeigherTest {
     public void shouldWeighByteArrays(int keyLength, int valueLength, long expectedWeight) {
         // given
         WorkerRecord<byte[], byte[]> workerRecord = workerRecordWithBytes(keyLength, valueLength);
-        BaseRecordWeigher<byte[], byte[]> recordWeigher = new BaseRecordWeigher<>(
+        RecordWeigher<byte[], byte[]> recordWeigher = new RecordWeigher<>(
                 ByteArrayWeigher.INSTANCE, ByteArrayWeigher.INSTANCE);
 
         // expect
@@ -65,7 +66,7 @@ public class BaseRecordWeigherTest {
     public void shouldWeighStrings(int keyLength, int valueLength, long expectedWeight) {
         // given
         WorkerRecord<String, String> workerRecord = workerRecordWithStrings(keyLength, valueLength);
-        BaseRecordWeigher<String, String> recordWeigher = new BaseRecordWeigher<>(
+        RecordWeigher<String, String> recordWeigher = new RecordWeigher<>(
                 StringWeigher.INSTANCE, StringWeigher.INSTANCE);
 
         // expect
@@ -87,7 +88,7 @@ public class BaseRecordWeigherTest {
     public void shouldWeighHeaders(long expectedWeight, String[] headers) {
         // given
         WorkerRecord<byte[], byte[]> workerRecord = emptyWorkerRecordWithHeaders(headers);
-        BaseRecordWeigher<byte[], byte[]> recordWeigher = new BaseRecordWeigher<>(
+        RecordWeigher<byte[], byte[]> recordWeigher = new RecordWeigher<>(
                 ByteArrayWeigher.INSTANCE, ByteArrayWeigher.INSTANCE);
 
         // expect

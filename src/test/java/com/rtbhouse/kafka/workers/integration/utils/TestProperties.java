@@ -3,7 +3,10 @@ package com.rtbhouse.kafka.workers.integration.utils;
 import java.util.Properties;
 import java.util.concurrent.ThreadLocalRandom;
 
-import org.apache.kafka.common.serialization.BytesDeserializer;
+import org.apache.kafka.common.serialization.ByteArrayDeserializer;
+
+import com.rtbhouse.kafka.workers.api.WorkersConfig;
+import com.rtbhouse.kafka.workers.api.record.weigher.ByteArrayWeigher;
 
 public final class TestProperties {
 
@@ -25,10 +28,14 @@ public final class TestProperties {
     }
 
     public static Properties workersProperties() {
-        return workersProperties(BytesDeserializer.class, BytesDeserializer.class, "test-topic");
+        return workersProperties(ByteArrayDeserializer.class, ByteArrayDeserializer.class,
+                ByteArrayWeigher.class, ByteArrayWeigher.class,
+                "test-topic");
     }
 
-    public static <K, V> Properties workersProperties(Class<K> keyDeserializer, Class<V> valueDeserializer, String... topics) {
+    public static Properties workersProperties(Class<?> keyDeserializer, Class<?> valueDeserializer,
+            Class<?> recordKeyWeigher, Class<?> recordValueWeigher,
+            String... topics) {
         Properties workersProperties = new Properties();
         workersProperties.put("consumer.topics", String.join(",", topics));
         workersProperties.put("consumer.kafka.bootstrap.servers", BOOTSTRAP_SERVERS);
@@ -36,6 +43,8 @@ public final class TestProperties {
         workersProperties.put("consumer.kafka.auto.offset.reset", "earliest");
         workersProperties.put("consumer.kafka.key.deserializer", keyDeserializer);
         workersProperties.put("consumer.kafka.value.deserializer", valueDeserializer);
+        workersProperties.put(WorkersConfig.RECORD_KEY_WEIGHER_CLASS, recordKeyWeigher);
+        workersProperties.put(WorkersConfig.RECORD_VALUE_WEIGHER_CLASS, recordValueWeigher);
         return workersProperties;
     }
 

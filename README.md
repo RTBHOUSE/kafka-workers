@@ -13,7 +13,7 @@ Kafka Workers is a client library which unifies records consuming from Kafka and
 
 ## Version
 
-Current version is **1.0.16**
+Current version is **1.1.0-SNAPSHOT**
 
 ## Requirements
 
@@ -27,7 +27,7 @@ Releases are distributed on [mvn repository](https://mvnrepository.com/artifact/
 <dependency>
     <groupId>com.rtbhouse</groupId>
     <artifactId>kafka-workers</artifactId>
-    <version>1.0.16</version>
+    <version>1.1.0-SNAPSHOT</version>
 </dependency>
 ```
 
@@ -221,7 +221,8 @@ Internally one Kafka Workers instance launches one consumer thread, one punctuat
      It defines how big part of the heap can be used for input queues (0.5 size of the heap by default).
      This total memory size for all queues is divided into individual queue sizes. E.g. for 8G heap and 0.5 ratio
      there will be 4G for all queues. If there are 32 subpartitions each of them will get 128M input queue.
-     Input record sizes are calculated by <code>record.weigher</code> class. 
+     Input record sizes are calculated using <code>record.key.weigher</code> and <code>record.value.weigher</code>
+     classes. 
    </td>
    </td>
    <td>double from (0, 1) range</td>
@@ -230,17 +231,31 @@ Internally one Kafka Workers instance launches one consumer thread, one punctuat
    </td>
 </tr>
 <tr>
-   <td>record.weigher</td>
+   <td>record.key.weigher</td>
    </td>
    <td>
-     Record weigher class implementing <code>com.rtbhouse.kafka.workers.api.record.weigher.RecordWeigher</code>
-     interface. It measures size in bytes of input records and is used to compute sizes of the input
-     queues. When a size limit for some queue is exceeded then the corresponding kafka partition is paused.
+     Class implementing <code>com.rtbhouse.kafka.workers.api.record.weigher.Weigher</code> interface
+     which measures size in bytes of input record keys. It is used to compute the total size of input records
+     and input queues.
    </td>
    </td>
    <td>class</td>
    </td>
-   <td>com.rtbhouse.kafka.workers.api.record.weigher.SimpleRecordWeigher</td>
+   <td></td>
+   </td>
+</tr>
+<tr>
+   <td>record.value.weigher</td>
+   </td>
+   <td>
+     Class implementing <code>com.rtbhouse.kafka.workers.api.record.weigher.Weigher</code> interface
+     which measures size in bytes of input record values. It is used to compute the total size of input records
+     and input queues.
+   </td>
+   </td>
+   <td>class</td>
+   </td>
+   <td></td>
    </td>
 </tr>
 <tr>

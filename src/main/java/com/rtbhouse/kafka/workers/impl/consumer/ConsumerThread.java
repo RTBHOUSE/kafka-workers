@@ -23,7 +23,6 @@ import com.rtbhouse.kafka.workers.api.WorkersConfig;
 import com.rtbhouse.kafka.workers.api.WorkersException;
 import com.rtbhouse.kafka.workers.api.partitioner.WorkerSubpartition;
 import com.rtbhouse.kafka.workers.api.record.WorkerRecord;
-import com.rtbhouse.kafka.workers.api.record.weigher.RecordWeigher;
 import com.rtbhouse.kafka.workers.impl.AbstractWorkersThread;
 import com.rtbhouse.kafka.workers.impl.KafkaWorkersImpl;
 import com.rtbhouse.kafka.workers.impl.Partitioned;
@@ -32,6 +31,7 @@ import com.rtbhouse.kafka.workers.impl.offsets.OffsetsState;
 import com.rtbhouse.kafka.workers.impl.partitioner.SubpartitionSupplier;
 import com.rtbhouse.kafka.workers.impl.queues.QueuesManager;
 import com.rtbhouse.kafka.workers.impl.range.RangeUtils;
+import com.rtbhouse.kafka.workers.impl.record.weigher.RecordWeigher;
 
 public class ConsumerThread<K, V> extends AbstractWorkersThread implements Partitioned {
 

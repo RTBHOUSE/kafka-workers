@@ -23,8 +23,7 @@ import org.apache.kafka.common.metrics.MetricsReporter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.rtbhouse.kafka.workers.api.record.RecordProcessingGuarantee;
-import com.rtbhouse.kafka.workers.api.record.weigher.RecordWeigher;
-import com.rtbhouse.kafka.workers.api.record.weigher.SimpleRecordWeigher;
+import com.rtbhouse.kafka.workers.api.record.weigher.Weigher;
 import com.rtbhouse.kafka.workers.api.task.WorkerTask;
 import com.rtbhouse.kafka.workers.impl.consumer.ConsumerThread;
 import com.rtbhouse.kafka.workers.impl.task.WorkerThread;
@@ -113,9 +112,11 @@ public class WorkersConfig extends AbstractConfig {
     private static final String PUNCTUATOR_INTERVAL_MS_DOC = "The frequency in milliseconds that punctuate method is called.";
     private static final long PUNCTUATOR_INTERVAL_MS_DEFAULT = Duration.of(1, ChronoUnit.SECONDS).toMillis();
 
-    public static final String RECORD_WEIGHER_CLASS = "record.weigher";
-    private static final String RECORD_WEIGHER_CLASS_DOC = "Record weigher class measuring size in bytes for each individual input record.";
-    private static final Class<?> RECORD_WEIGHER_CLASS_DEFAULT = SimpleRecordWeigher.class;
+    public static final String RECORD_KEY_WEIGHER_CLASS = "record.key.weigher";
+    private static final String RECORD_KEY_WEIGHER_CLASS_DOC = "TODO";
+
+    public static final String RECORD_VALUE_WEIGHER_CLASS = "record.value.weigher";
+    private static final String RECORD_VALUE_WEIGHER_CLASS_DOC = "TODO";
 
     public static final String QUEUE_TOTAL_SIZE_HEAP_RATIO = "queue.total.size.heap.ratio";
     private static final String QUEUE_TOTAL_SIZE_HEAP_RATIO_DOC = "Ratio of queue total size to heap size.";
@@ -195,11 +196,14 @@ public class WorkersConfig extends AbstractConfig {
                         PUNCTUATOR_INTERVAL_MS_DEFAULT,
                         Importance.MEDIUM,
                         PUNCTUATOR_INTERVAL_MS_DOC)
-                .define(RECORD_WEIGHER_CLASS,
+                .define(RECORD_KEY_WEIGHER_CLASS,
                         Type.CLASS,
-                        RECORD_WEIGHER_CLASS_DEFAULT,
                         Importance.HIGH,
-                        RECORD_WEIGHER_CLASS_DOC)
+                        RECORD_KEY_WEIGHER_CLASS_DOC)
+                .define(RECORD_VALUE_WEIGHER_CLASS,
+                        Type.CLASS,
+                        Importance.HIGH,
+                        RECORD_VALUE_WEIGHER_CLASS_DOC)
                 .define(QUEUE_TOTAL_SIZE_HEAP_RATIO,
                         Type.DOUBLE,
                         QUEUE_TOTAL_SIZE_HEAP_RATIO_DEFAULT,
@@ -315,8 +319,13 @@ public class WorkersConfig extends AbstractConfig {
         return getDouble(QUEUE_TOTAL_SIZE_HEAP_RATIO);
     }
 
-    public <K, V> RecordWeigher<K, V> getRecordWeigher() {
+    public <T> Weigher<T> getRecordKeyWeigher() {
         //noinspection unchecked
-        return getConfiguredInstance(RECORD_WEIGHER_CLASS, RecordWeigher.class);
+        return getConfiguredInstance(RECORD_KEY_WEIGHER_CLASS, Weigher.class);
+    }
+
+    public <T> Weigher<T> getRecordValueWeigher() {
+        //noinspection unchecked
+        return getConfiguredInstance(RECORD_VALUE_WEIGHER_CLASS, Weigher.class);
     }
 }
