@@ -13,7 +13,7 @@ Kafka Workers is a client library which unifies records consuming from Kafka and
 
 ## Version
 
-Current version is **1.1.0-SNAPSHOT**
+Current version is **1.1.0**
 
 ## Requirements
 
@@ -27,7 +27,7 @@ Releases are distributed on [mvn repository](https://mvnrepository.com/artifact/
 <dependency>
     <groupId>com.rtbhouse</groupId>
     <artifactId>kafka-workers</artifactId>
-    <version>1.1.0-SNAPSHOT</version>
+    <version>1.1.0</version>
 </dependency>
 ```
 
