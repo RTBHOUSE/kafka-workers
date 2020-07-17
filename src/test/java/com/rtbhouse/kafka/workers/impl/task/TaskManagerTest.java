@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -45,7 +46,7 @@ public class TaskManagerTest {
     private KafkaWorkersImpl<byte[], byte[]> workers;
 
     @Mock
-    private OffsetsState offsetsStateInterface;
+    private OffsetsState offsetsState;
 
     @Mock
     private QueuesManager<byte[], byte[]> queueManager;
@@ -56,15 +57,16 @@ public class TaskManagerTest {
         // given
         WorkerRecord<byte[], byte[]> record = new WorkerRecord<>(new ConsumerRecord<>("topic", 0, 0L, null, null), 0);
         when(queueManager.peek(any())).thenReturn(record);
+        when(config.getConsumerProcessingTimeout()).thenReturn(Duration.ofHours(1));
 
         WorkerTaskFactory<byte[], byte[]> taskFactory = new TaskFactory();
         SubpartitionSupplier<byte[], byte[]> subpartitionSupplier = new SubpartitionSupplier<>(new RoundRobinPartitioner<>(10));
         List<WorkerThread<byte[], byte[]>> threads = new ArrayList<>();
 
-        TaskManager<byte[], byte[]> taskManager = new TaskManager<>(config, metrics, taskFactory, subpartitionSupplier, threads);
+        TaskManager<byte[], byte[]> taskManager = new TaskManager<>(config, metrics, taskFactory, subpartitionSupplier, threads, offsetsState);
 
         for (int i = 0; i < WORKER_THREADS_NUM; i++) {
-            threads.add(new WorkerThread<>(i, config, metrics, workers, taskManager, queueManager, offsetsStateInterface));
+            threads.add(new WorkerThread<>(i, config, metrics, workers, taskManager, queueManager, offsetsState));
         }
         ExecutorService executorService = Executors.newFixedThreadPool(WORKER_THREADS_NUM);
         for (WorkerThread<byte[], byte[]> workerThread : threads) {

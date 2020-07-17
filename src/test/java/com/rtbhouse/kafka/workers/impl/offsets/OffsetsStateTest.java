@@ -130,7 +130,7 @@ public abstract class OffsetsStateTest {
         offsetsState.updateProcessed(TOPIC_PARTITION_0, 4L);
 
         // when
-        Map<TopicPartition, OffsetAndMetadata> offsets = offsetsState.getOffsetsToCommit(consumedAt);
+        Map<TopicPartition, OffsetAndMetadata> offsets = offsetsState.getOffsetsToCommit();
 
         // then
         assertThat(offsets.size()).isEqualTo(1);
@@ -158,7 +158,7 @@ public abstract class OffsetsStateTest {
         offsetsState.updateProcessed(TOPIC_PARTITION_0, 6L);
 
         // when
-        Map<TopicPartition, OffsetAndMetadata> offsets = offsetsState.getOffsetsToCommit(consumedAt);
+        Map<TopicPartition, OffsetAndMetadata> offsets = offsetsState.getOffsetsToCommit();
 
         // then
         assertThat(offsets).containsOnly(
@@ -188,7 +188,7 @@ public abstract class OffsetsStateTest {
         offsetsState.updateProcessed(TOPIC_PARTITION_1, 5L);
 
         // when
-        Map<TopicPartition, OffsetAndMetadata> offsets = offsetsState.getOffsetsToCommit(consumedAt);
+        Map<TopicPartition, OffsetAndMetadata> offsets = offsetsState.getOffsetsToCommit();
 
         // then
         assertThat(offsets).containsOnly(
@@ -213,7 +213,7 @@ public abstract class OffsetsStateTest {
         offsetsState.updateProcessed(TOPIC_PARTITION_0, 3L);
 
         // when
-        Map<TopicPartition, OffsetAndMetadata> offsets = offsetsState.getOffsetsToCommit(consumedAt);
+        Map<TopicPartition, OffsetAndMetadata> offsets = offsetsState.getOffsetsToCommit();
 
         // then
         assertThat(offsets).isEmpty();
@@ -297,7 +297,7 @@ public abstract class OffsetsStateTest {
         processed.forEach(processedOffset -> offsetsState.updateProcessed(partition, processedOffset));
 
         assertThatThrownBy(() -> {
-            offsetsState.getOffsetsToCommit(minConsumedAt);
+            offsetsState.timeoutRecordsConsumedBefore(minConsumedAt);
         }).isInstanceOf(ProcessingTimeoutException.class).hasMessageContaining(
                 String.format("Offset [%d] for partition [%s] exceeded timeout", expectedTimedOutOffset, partition));
     }
@@ -396,7 +396,7 @@ public abstract class OffsetsStateTest {
         );
 
         //when
-        Map<TopicPartition, OffsetAndMetadata> offsetsToCommit = offsetsState.getOffsetsToCommit(constInstant);
+        Map<TopicPartition, OffsetAndMetadata> offsetsToCommit = offsetsState.getOffsetsToCommit();
 
         //then
         checkExpectedToCommit(offsetsToCommit, expectedToCommitBefore);
@@ -405,7 +405,7 @@ public abstract class OffsetsStateTest {
         if (committed != null) {
             offsetsState.removeCommitted(Map.of(partition, new OffsetAndMetadata(committed + 1)));
         }
-        offsetsToCommit = offsetsState.getOffsetsToCommit(constInstant);
+        offsetsToCommit = offsetsState.getOffsetsToCommit();
 
         //then
         checkExpectedToCommit(offsetsToCommit, expectedToCommitAfter);

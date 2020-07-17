@@ -18,8 +18,9 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.kafka.common.TopicPartition;
 import org.slf4j.Logger;
@@ -54,11 +55,11 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
     private final RecordWeigher<K, V> recordWeigher;
     private final ShutdownCallback callback;
 
-    private TaskManager<K, V> taskManager;
-    private QueuesManager<K, V> queueManager;
+    private final TaskManager<K, V> taskManager;
+    private final QueuesManager<K, V> queueManager;
     private final OffsetsState offsetsState;
 
-    private ExecutorService executorService;
+    private ThreadPoolExecutor executor;
     private final List<WorkerThread<K, V>> workerThreads = new ArrayList<>();
     private PunctuatorThread<K, V> punctuatorThread;
     private ConsumerThread<K, V> consumerThread;
@@ -81,16 +82,17 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
         this.taskFactory = taskFactory;
         this.subpartitionSupplier = new SubpartitionSupplier<>(partitioner);
         this.callback = callback;
-        this.offsetsState = new DefaultOffsetsState(this.config, this.metrics);;
+        this.offsetsState = new DefaultOffsetsState(this.config, this.metrics);
         this.recordWeigher = new RecordWeigher<>(this.config.getRecordKeyWeigher(), this.config.getRecordValueWeigher());
+        this.taskManager = new TaskManager<>(config, this.metrics, this.taskFactory, this.subpartitionSupplier,
+                this.workerThreads, this.offsetsState);
+        this.queueManager = new QueuesManager<>(config, this.metrics, this.subpartitionSupplier, this.taskManager,
+                this.recordWeigher);
     }
 
     public void start() {
         setStatus(STARTING);
         logger.info("kafka workers starting");
-
-        taskManager = new TaskManager<>(config, metrics, taskFactory, subpartitionSupplier, workerThreads);
-        queueManager = new QueuesManager<>(config, metrics, subpartitionSupplier, taskManager, recordWeigher);
 
         final int workerThreadsNum = config.getInt(WorkersConfig.WORKER_THREADS_NUM);
         consumerThread = new ConsumerThread<>(config, metrics, this, queueManager, subpartitionSupplier, offsetsState, recordWeigher);
@@ -104,12 +106,14 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
         // - plus one consumer thread
         // - plus one punctuator thread
         final int allThreadsNum = workerThreadsNum + 2;
-        executorService = Executors.newFixedThreadPool(allThreadsNum);
-        executorService.execute(consumerThread);
+        executor = new ThreadPoolExecutor(allThreadsNum, allThreadsNum,
+                0L, TimeUnit.MILLISECONDS,
+                new LinkedBlockingQueue<>());
+        executor.execute(consumerThread);
         for (WorkerThread<K, V> workerThread : workerThreads) {
-            executorService.execute(workerThread);
+            executor.execute(workerThread);
         }
-        executorService.execute(punctuatorThread);
+        executor.execute(punctuatorThread);
 
         setStatus(STARTED);
         logger.info("kafka workers started");
@@ -124,15 +128,7 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
         logger.info("kafka workers blocking shutdown called");
         if (tryToSetStatus(SHUTDOWN)) {
             shutdownThread.shutdown();
-            synchronized (shutdownLock) {
-                while (!status.isTerminal()) {
-                    try {
-                        shutdownLock.wait();
-                    } catch (InterruptedException e) {
-                        logger.error("interrupted", e);
-                    }
-                }
-            }
+            waitForShutdown();
         }
     }
 
@@ -158,21 +154,21 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
         }
 
         logger.info("executorService.shutdown()");
-        executorService.shutdown();
+        executor.shutdown();
 
         Duration shutdownTimeout = config.getShutdownTimeout();
         Status terminalStatus;
         try {
             logger.info("executorService.awaitTermination({}s)", shutdownTimeout.toSeconds());
-            if (executorService.awaitTermination(shutdownTimeout.toMillis(), MILLISECONDS)) {
+            if (executor.awaitTermination(shutdownTimeout.toMillis(), MILLISECONDS)) {
                 terminalStatus = CLOSED_GRACEFULLY;
                 logger.info("executorService terminated successfully with shutdown() method");
             } else {
                 logger.warn("executorService not terminated within the given period (using shutdown() method)");
                 logger.info("executorService.shutdownNow()");
-                executorService.shutdownNow();
+                executor.shutdownNow();
                 logger.info("executorService.awaitTermination({}s)", shutdownTimeout.toSeconds());
-                if (executorService.awaitTermination(shutdownTimeout.toMillis(), MILLISECONDS)) {
+                if (executor.awaitTermination(shutdownTimeout.toMillis(), MILLISECONDS)) {
                     terminalStatus = CLOSED_NOT_GRACEFULLY;
                     logger.info("executorService terminated successfully with shutdownNow() method");
                 } else {
@@ -197,7 +193,10 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
         }
 
         setStatus(terminalStatus);
-        logger.info("kafka workers closed");
+        if (!executor.isTerminated()) {
+            logger.warn("Cannot stop [{}] thread(s)", executor.getActiveCount());
+        }
+        logger.info("kafka workers closed with status: {}", getStatus());
 
         synchronized (shutdownLock) {
             shutdownLock.notifyAll();
@@ -250,5 +249,19 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
 
     public Status getStatus() {
         return status;
+    }
+
+    public Status waitForShutdown() {
+        synchronized (shutdownLock) {
+            while (!status.isTerminal()) {
+                try {
+                    shutdownLock.wait();
+                } catch (InterruptedException e) {
+                    logger.error("interrupted", e);
+                }
+            }
+        }
+
+        return getStatus();
     }
 }
