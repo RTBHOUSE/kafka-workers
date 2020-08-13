@@ -328,4 +328,16 @@ public class WorkersConfig extends AbstractConfig {
         //noinspection unchecked
         return getConfiguredInstance(RECORD_VALUE_WEIGHER_CLASS, Weigher.class);
     }
+
+    public Duration getConsumerPollTimeout() {
+        return Duration.ofMillis(getLong(WorkersConfig.CONSUMER_POLL_TIMEOUT_MS));
+    }
+
+    public Duration getConsumerProcessingTimeout() {
+        return Duration.ofMillis(getLong(WorkersConfig.CONSUMER_PROCESSING_TIMEOUT_MS));
+    }
+
+    public long getConsumerCommitIntervalMs() {
+        return getLong(WorkersConfig.CONSUMER_COMMIT_INTERVAL_MS);
+    }
 }

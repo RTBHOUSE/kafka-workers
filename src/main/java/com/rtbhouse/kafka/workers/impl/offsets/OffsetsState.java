@@ -23,11 +23,9 @@ public interface OffsetsState extends Partitioned {
 
     void updateProcessed(TopicPartition partition, long offset);
 
-    Map<TopicPartition, OffsetAndMetadata> getOffsetsToCommit(Instant minConsumedAt);
+    void timeoutRecordsConsumedBefore(Instant minConsumedAt);
 
-    default Map<TopicPartition, OffsetAndMetadata> getOffsetsToCommit() {
-        return getOffsetsToCommit(null);
-    }
+    Map<TopicPartition, OffsetAndMetadata> getOffsetsToCommit();
 
     void removeCommitted(Map<TopicPartition, OffsetAndMetadata> offsetsAndMetadata);
 }

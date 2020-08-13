@@ -205,12 +205,48 @@ public class DefaultOffsetsState implements OffsetsState {
     }
 
     @Override
-    public Map<TopicPartition, OffsetAndMetadata> getOffsetsToCommit(Instant minConsumedAt) {
+    public void timeoutRecordsConsumedBefore(Instant minConsumedAt) {
+        for (TopicPartition partition : getPartitions()) {
+            ConsumedOffsets consumedOffsets = consumedOffsetsMap.get(partition);
+            SortedRanges processedOffsets = processedOffsetsMap.get(partition);
+
+            if (consumedOffsets == null || processedOffsets == null) {
+                return;
+            }
+
+            synchronized (consumedOffsets) {
+                synchronized (processedOffsets) {
+                    removeProcessedOffsetsFromHeadConsumedOffsets(consumedOffsets, processedOffsets);
+                    consumedOffsets.getFirst().ifPresent(consumedFirstRange ->
+                            checkConsumedOffsetsTimeout(partition, consumedFirstRange, minConsumedAt));
+                }
+            }
+        }
+    }
+
+    private void checkConsumedOffsetsTimeout(TopicPartition partition,
+            ConsumedOffsetRange consumedRange,
+            Instant minConsumedAt) {
+
+        if (minConsumedAt != null) {
+            long minConsumedOffset = consumedRange.lowerEndpoint();
+            Instant consumedAt = consumedRange.getConsumedAt();
+            if (consumedAt.isBefore(minConsumedAt)) {
+                throw new ProcessingTimeoutException(
+                        String.format("Offset [%s] for partition [%s] exceeded timeout: consumedAt [%s], age [%s ms]",
+                                minConsumedOffset, partition, consumedAt.toEpochMilli(), age(consumedAt).toMillis())
+                );
+            }
+        }
+    }
+
+    @Override
+    public Map<TopicPartition, OffsetAndMetadata> getOffsetsToCommit() {
 
         ImmutableMap.Builder<TopicPartition, OffsetAndMetadata> builder = ImmutableMap.builder();
 
         for (TopicPartition partition : getPartitions()) {
-            Long offsetToCommit = getOffsetToCommit(partition, minConsumedAt);
+            Long offsetToCommit = getOffsetToCommit(partition);
             if (offsetToCommit != null) {
                 builder.put(partition, new OffsetAndMetadata(offsetToCommit + 1));
             }
@@ -224,7 +260,7 @@ public class DefaultOffsetsState implements OffsetsState {
         return ImmutableSet.copyOf(consumedOffsetsMap.keySet());
     }
 
-    private Long getOffsetToCommit(TopicPartition partition, Instant minConsumedAt) {
+    private Long getOffsetToCommit(TopicPartition partition) {
         ConsumedOffsets consumedOffsets = consumedOffsetsMap.get(partition);
         SortedRanges processedOffsets = processedOffsetsMap.get(partition);
 
@@ -235,39 +271,18 @@ public class DefaultOffsetsState implements OffsetsState {
 
         synchronized (consumedOffsets) {
             synchronized (processedOffsets) {
+
                 removeProcessedOffsetsFromHeadConsumedOffsets(consumedOffsets, processedOffsets);
+                ConsumedOffsetRange consumedFirstRange = consumedOffsets.getFirst().orElse(null);
 
-                Optional<ConsumedOffsetRange> consumedFirstRange = consumedOffsets.getFirst();
-
-                // Timeouts are reported for consumed offsets only
-                checkConsumedOffsetsTimeout(partition, consumedFirstRange, minConsumedAt);
-
-                if (consumedFirstRange.isPresent()) {
-                    return processedOffsets.floorElement(consumedFirstRange.get().lowerEndpoint() - 1)
+                if (consumedFirstRange != null) {
+                    return processedOffsets.floorElement(consumedFirstRange.lowerEndpoint() - 1)
                             .orElse(null);
                 } else {
                     return processedOffsets.getLast()
                             .map(ClosedRange::upperEndpoint)
                             .orElse(null);
                 }
-            }
-        }
-    }
-
-    @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-    private void checkConsumedOffsetsTimeout(TopicPartition partition,
-                                             Optional<ConsumedOffsetRange> consumedFirstRange,
-                                             Instant minConsumedAt) {
-
-        if (minConsumedAt != null && consumedFirstRange.isPresent()) {
-            ConsumedOffsetRange consumedRange = consumedFirstRange.get();
-            long minConsumedOffset = consumedRange.lowerEndpoint();
-            Instant consumedAt = consumedRange.getConsumedAt();
-            if (consumedAt.isBefore(minConsumedAt)) {
-                throw new ProcessingTimeoutException(
-                        String.format("Offset [%s] for partition [%s] exceeded timeout: consumedAt [%s], age [%s ms]",
-                                minConsumedOffset, partition, consumedAt.toEpochMilli(), age(consumedAt).toMillis())
-                );
             }
         }
     }

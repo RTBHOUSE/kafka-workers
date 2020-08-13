@@ -156,7 +156,19 @@ public class KafkaWorkers<K, V> {
         workers.blockingShutdown();
     }
 
+    /**
+     * @return the {@link Status status} of the {@code KafkaWorkers} instance
+     */
     public Status getStatus() {
         return workers.getStatus();
+    }
+
+    /**
+     * This method blocks until the {@code KafkaWorkers} instance reaches a terminal status.
+     * @return the terminal status reached by {@code KafkaWorkers}
+     * @see Status#isTerminal()
+     */
+    public Status waitForShutdown() {
+        return workers.waitForShutdown();
     }
 }

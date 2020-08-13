@@ -61,9 +61,9 @@ public class ConsumerThread<K, V> extends AbstractWorkersThread implements Parti
             RecordWeigher<K, V> recordWeigher) {
         super("consumer-thread", config, metrics, workers);
 
-        this.consumerPollTimeout = Duration.ofMillis(config.getLong(WorkersConfig.CONSUMER_POLL_TIMEOUT_MS));
-        this.consumerProcessingTimeout = Duration.ofMillis(config.getLong(WorkersConfig.CONSUMER_PROCESSING_TIMEOUT_MS));
-        this.consumerCommitIntervalMs = config.getLong(WorkersConfig.CONSUMER_COMMIT_INTERVAL_MS);
+        this.consumerPollTimeout = config.getConsumerPollTimeout();
+        this.consumerProcessingTimeout = config.getConsumerProcessingTimeout();
+        this.consumerCommitIntervalMs = config.getConsumerCommitIntervalMs();
 
         this.queuesManager = queuesManager;
         this.subpartitionSupplier = subpartitionSupplier;
@@ -127,6 +127,7 @@ public class ConsumerThread<K, V> extends AbstractWorkersThread implements Parti
         }
 
         if (shouldCommitNow()) {
+            timeoutRecords();
             commitAsync();
         }
     }
@@ -201,9 +202,13 @@ public class ConsumerThread<K, V> extends AbstractWorkersThread implements Parti
         }
     }
 
+    private void timeoutRecords() {
+        Instant minConsumedAt = Instant.now().minus(consumerProcessingTimeout);
+        offsetsState.timeoutRecordsConsumedBefore(minConsumedAt);
+    }
+
     private void commitAsync() {
-        Instant minCreatedAt = Instant.now().minus(consumerProcessingTimeout);
-        Map<TopicPartition, OffsetAndMetadata> offsets = offsetsState.getOffsetsToCommit(minCreatedAt);
+        Map<TopicPartition, OffsetAndMetadata> offsets = offsetsState.getOffsetsToCommit();
         logger.debug("committing offsets async: {}", offsets);
         if (!offsets.isEmpty()) {
             consumer.commitAsync(offsets, commitCallback);

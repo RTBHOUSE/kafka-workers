@@ -1,5 +1,7 @@
 package com.rtbhouse.kafka.workers.impl.task;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -14,17 +16,21 @@ import com.rtbhouse.kafka.workers.api.partitioner.WorkerSubpartition;
 import com.rtbhouse.kafka.workers.api.task.WorkerTaskFactory;
 import com.rtbhouse.kafka.workers.impl.Partitioned;
 import com.rtbhouse.kafka.workers.impl.metrics.WorkersMetrics;
+import com.rtbhouse.kafka.workers.impl.offsets.OffsetsState;
 import com.rtbhouse.kafka.workers.impl.partitioner.SubpartitionSupplier;
 
 public class TaskManager<K, V> implements Partitioned {
 
     private static final Logger logger = LoggerFactory.getLogger(TaskManager.class);
+    private static final Duration CHECK_TIMED_OUT_RECORDS_EVERY = Duration.ofSeconds(1);
 
     private final WorkersConfig config;
     private final WorkersMetrics metrics;
     private final WorkerTaskFactory<K, V> taskFactory;
     private final SubpartitionSupplier<K, V> subpartitionSupplier;
     private final List<WorkerThread<K, V>> threads;
+    private final OffsetsState offsetsState;
+    private final Duration consumerProcessingTimeout;
 
     private final Map<WorkerSubpartition, WorkerTaskImpl<K, V>> partitionToTaskMap = new ConcurrentHashMap<>();
 
@@ -35,12 +41,15 @@ public class TaskManager<K, V> implements Partitioned {
             WorkersMetrics metrics,
             WorkerTaskFactory<K, V> taskFactory,
             SubpartitionSupplier<K, V> subpartitionSupplier,
-            List<WorkerThread<K, V>> threads) {
+            List<WorkerThread<K, V>> threads,
+            OffsetsState offsetsState) {
         this.config = config;
         this.metrics = metrics;
         this.taskFactory = taskFactory;
         this.subpartitionSupplier = subpartitionSupplier;
         this.threads = threads;
+        this.offsetsState = offsetsState;
+        this.consumerProcessingTimeout = this.config.getConsumerProcessingTimeout();
     }
 
     @Override
@@ -83,7 +92,7 @@ public class TaskManager<K, V> implements Partitioned {
         }
     }
 
-    private void rebalanceTasks() throws InterruptedException {
+    private void rebalanceTasks() {
         int index = 0;
         for (WorkerTaskImpl<K, V> task : partitionToTaskMap.values()) {
             threads.get(index).addTask(task);
@@ -103,7 +112,10 @@ public class TaskManager<K, V> implements Partitioned {
         // waits for all threads to stop because only then tasks can be rebalanced safely
         synchronized (rebalanceLock) {
             while (!allThreadsNotRunning()) {
-                rebalanceLock.wait();
+                // timeout here is needed to check periodically whether some consumed records have timed out
+                // without it a deadlock can happen (when some processing threads are blocked)
+                rebalanceLock.wait(CHECK_TIMED_OUT_RECORDS_EVERY.toMillis());
+                offsetsState.timeoutRecordsConsumedBefore(Instant.now().minus(consumerProcessingTimeout));
             }
         }
     }
