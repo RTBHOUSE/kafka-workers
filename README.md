@@ -1,8 +1,8 @@
 ![build status](https://api.travis-ci.org/RTBHOUSE/kafka-workers.svg?branch=master)
 
-# kafka-workers
+# Kafka Workers
 
-Kafka Workers is a client library which unifies records consuming from Kafka and processing them by user-defined WorkerTasks. It provides:
+Kafka Workers is a client library which unifies records consuming from Kafka and processing them by user-defined tasks. It provides:
  - higher level of distribution because of sub-partitioning defined by **WorkerPartitioner**,
  - tighter control of offsets commits to Kafka applied by **RecordStatusObserver**,
  - possibility to pause and resume processing by **WorkerTask** for given partition,
@@ -11,9 +11,21 @@ Kafka Workers is a client library which unifies records consuming from Kafka and
  - processing timeouts,
  - handling failures.
 
+## Motivation
+
+The major thing to address was a threading model with better resources utilization in terms of:
+ - decoupling consumption and processing with records buffering (for better performance)
+ - higher level of distribution for processing (higher than consumption and not always limited by partitions count)
+ 
+Especially for the second point we have a repeating scenario: for some reasons we want to keep the same (not too high) count of partitions which gives us a good distribution and efficiency of day-to-day processing. The problem occurs when we need to (re)process the stream with a huge (consumer) lag (for example because of some failure). In such a scenario we would like to temporarily bump up the number of partitions for data stored in Kafka to better utilize cpu and/or external APIs. It is what we called sub-partitioning. What is important in terms of proper distributed processing, stream of records from one TopicPartition could be reordered now but records with the same WorkerSubpartition remain ordered to each other. Assuming that the user-defined subpartitioner depends on the key, these streams remain partially ordered but records with the same keys are processed sequentially.
+ 
+The second requirement was a possibility to pause and resume processing for a given partition. It was required particularly by one of our components which role is to merge given pairs of partitions from different topics. It is a time-aware merging so from time to time we need to "wait" for a related partition without stopping others. What is more, this feature gives backpressure mechanism which was needed by mentioned separation of consumption and processing.
+ 
+The last but not least was simplicity (lightweight library, with almost pure Kafka Consumer-like API, with no processing cluster, without external dependencies, without translating messages to/from its internal data format etc.) and genericity (we managed to replace mix of technologies like Storm, Kafka Streams/Connect, Flume and Logstash by a unified solution).
+
 ## Version
 
-Current version is **1.1.1-SNAPSHOT**
+Current version is **1.1.0**
 
 ## Requirements
 
@@ -21,13 +33,14 @@ You need Java 11 and at least Apache Kafka 2.0 to use this library.
 
 ## Installation
 
-Releases are distributed on [mvn repository](https://mvnrepository.com/artifact/com.rtbhouse/kafka-workers):
+Releases are distributed on [mvn repository](https://mvnrepository.com/artifact/com.rtbhouse/
+rkers):
 
 ```xml
 <dependency>
     <groupId>com.rtbhouse</groupId>
     <artifactId>kafka-workers</artifactId>
-    <version>1.1.1-SNAPSHOT</version>
+    <version>1.1.0</version>
 </dependency>
 ```
 
@@ -288,7 +301,7 @@ At RTB House we use Kafka Workers for all components in our processing infrastru
  - [Our real-time data processing - part 2](https://techblog.rtbhouse.com/2018/12/10/data-flow-part2)
  - [Kafka Workers as an alternative to Kafka Connect](https://techblog.rtbhouse.com/2020/03/31/kafka-workers-vs-connect/)
 
-So far we have adopted Kafka Workers to all our use cases: BigQuery, HDFS, Elasticsearch, Aerospike, Postgres streaming writers and other Kafka to Kafka data flows which include merging, joining, dispatching, enriching, deduplicating, counting aggregates for streams of events. The diagram below shows high-level architecture of our current processing infrastructure:
+We have adopted Kafka Workers to all our use cases which are: Kafka-to-Kafka-processing and HDFS, BigQuery, Aerospike, Elastic streaming etc. It helps us to utilize different types of resources and works successfully on a really huge scale. So far we have open sourced a core part only but we are going to do the same with our "connectors". The diagram below shows high-level architecture of our current processing infrastructure:
 
 ![Our real-time data processing](docs/multi-dc-arch.png)
 
