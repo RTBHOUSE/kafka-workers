@@ -3,6 +3,7 @@ package com.rtbhouse.kafka.workers.integration.utils;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.Optional;
 import java.util.Properties;
 import java.util.Random;
 
@@ -19,11 +20,11 @@ import kafka.server.KafkaServerStartable;
 
 public class KafkaServerRule implements MethodRule, TestRule {
 
-    private Properties kafkaProperties;
+    private final Properties kafkaProperties;
     private TestingServer zookeeperServer;
     private KafkaServerStartable server;
     private File logDir;
-    private Random random = new Random();
+    private final Random random = new Random();
 
     public KafkaServerRule(Properties kafkaProperties) {
         this.kafkaProperties = kafkaProperties;
@@ -122,12 +123,10 @@ public class KafkaServerRule implements MethodRule, TestRule {
         }
     }
 
-    public String getZookeeperConnectString() {
-        if (zookeeperServer != null) {
-            return zookeeperServer.getConnectString();
-        } else {
-            return kafkaProperties.getProperty("zookeeper.connect");
-        }
+    public String getBootstrapServers() {
+        return String.format("%s:%s",
+                Optional.ofNullable(kafkaProperties.get("host.name")).orElseThrow(),
+                Optional.ofNullable(kafkaProperties.get("port")).orElseThrow());
     }
 
     public File getLogDir() {

@@ -32,9 +32,9 @@ import com.rtbhouse.kafka.workers.api.WorkersConfig;
 import com.rtbhouse.kafka.workers.api.record.weigher.StringWeigher;
 import com.rtbhouse.kafka.workers.api.task.WorkerTaskFactory;
 import com.rtbhouse.kafka.workers.integration.utils.KafkaServerRule;
+import com.rtbhouse.kafka.workers.integration.utils.KafkaUtils;
 import com.rtbhouse.kafka.workers.integration.utils.RequiresKafkaServer;
 import com.rtbhouse.kafka.workers.integration.utils.TestProperties;
-import com.rtbhouse.kafka.workers.integration.utils.ZookeeperUtils;
 
 @RequiresKafkaServer
 public class ShutdownTest {
@@ -42,6 +42,7 @@ public class ShutdownTest {
     private static final String SOME_TOPIC = "some_topic";
     private static final int NUM_PARTITIONS = 4;
     private static final Duration WORKER_SHUTDOWN_TIMEOUT = Duration.ofSeconds(3);
+    private static final Duration CONSUMER_PROCESSING_TIMEOUT = Duration.ofSeconds(30);
 
     private static final Properties WORKERS_PROPERTIES = TestProperties.workersProperties(
             StringDeserializer.class, StringDeserializer.class,
@@ -50,6 +51,7 @@ public class ShutdownTest {
     static {
         WORKERS_PROPERTIES.put(WorkersConfig.WORKER_THREADS_NUM, NUM_PARTITIONS);
         WORKERS_PROPERTIES.put(WorkersConfig.WORKER_SHUTDOWN_TIMEOUT_MS, WORKER_SHUTDOWN_TIMEOUT.toMillis());
+        WORKERS_PROPERTIES.put(WorkersConfig.CONSUMER_PROCESSING_TIMEOUT_MS, CONSUMER_PROCESSING_TIMEOUT.toMillis());
     }
 
     private static final Properties PRODUCER_PROPERTIES = TestProperties.producerProperties(
@@ -124,17 +126,13 @@ public class ShutdownTest {
 
         //then
         assertThat(kafkaWorkers.getStatus()).isEqualTo(CANNOT_STOP_THREADS);
-        assertThat(shutdownTime).isBetween(
-                WORKER_SHUTDOWN_TIMEOUT.multipliedBy(2),
-                WORKER_SHUTDOWN_TIMEOUT.multipliedBy(2).plus(ONE_SECOND)
-        );
     }
 
     private void topic(String topic, int numPartitions, int numMessagesPerPartition) throws InterruptedException {
         checkArgument(numPartitions >= 1);
         checkArgument(numMessagesPerPartition >= 0);
 
-        ZookeeperUtils.createTopics(kafkaServerRule.getZookeeperConnectString(), numPartitions, 1, topic);
+        KafkaUtils.createTopics(kafkaServerRule.getBootstrapServers(), numPartitions, 1, topic);
         for (int partition = 0; partition < numPartitions; partition++) {
             for (int i = 0; i < numMessagesPerPartition; i++) {
                 producer.send(new ProducerRecord<>(SOME_TOPIC, partition, null,
