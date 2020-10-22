@@ -25,7 +25,7 @@ The last but not least was simplicity (lightweight library, with almost pure Kaf
 
 ## Version
 
-Current version is **1.1.1**
+Current version is **1.1.2**
 
 ## Requirements
 
@@ -40,7 +40,7 @@ rkers):
 <dependency>
     <groupId>com.rtbhouse</groupId>
     <artifactId>kafka-workers</artifactId>
-    <version>1.1.1</version>
+    <version>1.1.2</version>
 </dependency>
 ```
 
