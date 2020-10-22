@@ -38,9 +38,9 @@ import com.rtbhouse.kafka.workers.api.task.WorkerTask;
 import com.rtbhouse.kafka.workers.api.task.WorkerTaskFactory;
 import com.rtbhouse.kafka.workers.impl.errors.ProcessingFailureException;
 import com.rtbhouse.kafka.workers.integration.utils.KafkaServerRule;
+import com.rtbhouse.kafka.workers.integration.utils.KafkaUtils;
 import com.rtbhouse.kafka.workers.integration.utils.RequiresKafkaServer;
 import com.rtbhouse.kafka.workers.integration.utils.TestProperties;
-import com.rtbhouse.kafka.workers.integration.utils.ZookeeperUtils;
 
 @RequiresKafkaServer
 public class MergerTest {
@@ -73,7 +73,7 @@ public class MergerTest {
 
     @Before
     public void before() throws Exception {
-        ZookeeperUtils.createTopics(kafkaServerRule.getZookeeperConnectString(), 2, 1, TOPIC_ONE, TOPIC_TWO, OUTPUT_TOPIC);
+        KafkaUtils.createTopics(kafkaServerRule.getBootstrapServers(), 2, 1, TOPIC_ONE, TOPIC_TWO, OUTPUT_TOPIC);
         consumer = new KafkaConsumer<>(CONSUMER_PROPERTIES);
         producer = new KafkaProducer<>(PRODUCER_PROPERTIES);
     }

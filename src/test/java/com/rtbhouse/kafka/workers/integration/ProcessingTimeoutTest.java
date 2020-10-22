@@ -29,9 +29,9 @@ import com.rtbhouse.kafka.workers.api.task.WorkerTask;
 import com.rtbhouse.kafka.workers.api.task.WorkerTaskFactory;
 import com.rtbhouse.kafka.workers.impl.errors.ProcessingTimeoutException;
 import com.rtbhouse.kafka.workers.integration.utils.KafkaServerRule;
+import com.rtbhouse.kafka.workers.integration.utils.KafkaUtils;
 import com.rtbhouse.kafka.workers.integration.utils.RequiresKafkaServer;
 import com.rtbhouse.kafka.workers.integration.utils.TestProperties;
-import com.rtbhouse.kafka.workers.integration.utils.ZookeeperUtils;
 
 @RequiresKafkaServer
 public class ProcessingTimeoutTest {
@@ -63,7 +63,7 @@ public class ProcessingTimeoutTest {
 
     @Before
     public void before() throws Exception {
-        ZookeeperUtils.createTopics(kafkaServerRule.getZookeeperConnectString(), 1, 1, TOPIC);
+        KafkaUtils.createTopics(kafkaServerRule.getBootstrapServers(), 1, 1, TOPIC);
         producer = new KafkaProducer<>(PRODUCER_PROPERTIES);
     }
 
