@@ -8,15 +8,18 @@ import static com.rtbhouse.kafka.workers.api.KafkaWorkers.Status.STARTED;
 import static com.rtbhouse.kafka.workers.integration.utils.TestTasks.createInterruptibleTask;
 import static com.rtbhouse.kafka.workers.integration.utils.TestTasks.createNoopTask;
 import static com.rtbhouse.kafka.workers.integration.utils.TestTasks.createNotInterruptibleTask;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 import static org.awaitility.Durations.FIVE_SECONDS;
 import static org.awaitility.Durations.ONE_SECOND;
+import static org.awaitility.Durations.TEN_SECONDS;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Properties;
+import java.util.concurrent.CompletableFuture;
 
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -28,6 +31,7 @@ import org.junit.Rule;
 import org.junit.Test;
 
 import com.rtbhouse.kafka.workers.api.KafkaWorkers;
+import com.rtbhouse.kafka.workers.api.ShutdownCallback;
 import com.rtbhouse.kafka.workers.api.WorkersConfig;
 import com.rtbhouse.kafka.workers.api.record.weigher.StringWeigher;
 import com.rtbhouse.kafka.workers.api.task.WorkerTaskFactory;
@@ -73,7 +77,7 @@ public class ShutdownTest {
     }
 
     @Test
-    public void shouldShutDownWhenThereAreNoInputMessages() throws InterruptedException {
+    public void shouldShutDownWhenThereAreNoInputMessages() throws Exception {
 
         //given
         topic(SOME_TOPIC, NUM_PARTITIONS, 0);
@@ -82,17 +86,14 @@ public class ShutdownTest {
         );
 
         //when
-        Instant start = Instant.now();
-        kafkaWorkers.shutdown(); //blocking
-        Duration shutdownTime = elapsedTimeFrom(start);
+        runWithTimeout(kafkaWorkers::shutdown, WORKER_SHUTDOWN_TIMEOUT.plus(ONE_SECOND));
 
         //then
         assertThat(kafkaWorkers.getStatus()).isEqualTo(CLOSED_GRACEFULLY);
-        assertThat(shutdownTime).isLessThan(WORKER_SHUTDOWN_TIMEOUT.plus(ONE_SECOND));
     }
 
     @Test
-    public void shouldShutDownWhenThreadsCanBeInterrupted() throws InterruptedException {
+    public void shouldShutDownWhenThreadsCanBeInterrupted() throws Exception {
 
         //given
         topic(SOME_TOPIC, NUM_PARTITIONS, 5);
@@ -101,17 +102,15 @@ public class ShutdownTest {
         );
 
         //when
-        Instant start = Instant.now();
-        kafkaWorkers.shutdown(); //blocking
-        Duration shutdownTime = elapsedTimeFrom(start);
+        Duration shutdownTime = runWithTimeout(kafkaWorkers::shutdown, WORKER_SHUTDOWN_TIMEOUT.multipliedBy(2).plus(ONE_SECOND));
 
         //then
         assertThat(kafkaWorkers.getStatus()).isEqualTo(CLOSED_NOT_GRACEFULLY);
-        assertThat(shutdownTime).isBetween(WORKER_SHUTDOWN_TIMEOUT, WORKER_SHUTDOWN_TIMEOUT.multipliedBy(2).plus(ONE_SECOND));
+        assertThat(shutdownTime).isGreaterThanOrEqualTo(WORKER_SHUTDOWN_TIMEOUT);
     }
 
     @Test
-    public void shouldShutDownWhenThreadsCannotBeInterrupted() throws InterruptedException {
+    public void shouldShutDownWhenThreadsCannotBeInterrupted() throws Exception {
 
         //given
         topic(SOME_TOPIC, NUM_PARTITIONS, 5);
@@ -120,15 +119,36 @@ public class ShutdownTest {
         );
 
         //when
-        Instant start = Instant.now();
-        kafkaWorkers.shutdown(); //blocking
-        Duration shutdownTime = elapsedTimeFrom(start);
+        runWithTimeout(kafkaWorkers::shutdown, CONSUMER_PROCESSING_TIMEOUT.plus(TEN_SECONDS));
 
         //then
         assertThat(kafkaWorkers.getStatus()).isEqualTo(CANNOT_STOP_THREADS);
     }
 
-    private void topic(String topic, int numPartitions, int numMessagesPerPartition) throws InterruptedException {
+    @Test
+    public void shouldShutDownWhenShutdownThreadDies() throws Exception {
+
+        //given
+        KafkaWorkers<String, String> kafkaWorkers = kafkaWorkersStarted(
+                config -> createNoopTask(),
+                exception -> { throw new Error("shutdown thread dies"); }
+        );
+
+        //when
+        // 1s of margin plus 2x10s for timeout in KafkaWorkersImpl.waitForShutdown
+        runWithTimeout(kafkaWorkers::shutdown, WORKER_SHUTDOWN_TIMEOUT.plus(Duration.ofSeconds(21)));
+
+        //then
+        assertThat(kafkaWorkers.getStatus().isTerminal()).isFalse();
+    }
+
+    private Duration runWithTimeout(Runnable runnable, Duration timeout) throws Exception {
+        Instant start = Instant.now();
+        CompletableFuture.runAsync(runnable).get(timeout.toMillis(), MILLISECONDS);
+        return elapsedTimeFrom(start);
+    }
+
+    private void topic(String topic, int numPartitions, int numMessagesPerPartition) {
         checkArgument(numPartitions >= 1);
         checkArgument(numMessagesPerPartition >= 0);
 
@@ -143,10 +163,17 @@ public class ShutdownTest {
     }
 
     private <K, V> KafkaWorkers<K, V> kafkaWorkersStarted(WorkerTaskFactory<K, V> taskFactory) throws InterruptedException {
+        return kafkaWorkersStarted(taskFactory, null);
+    }
+
+    private <K, V> KafkaWorkers<K, V> kafkaWorkersStarted(WorkerTaskFactory<K, V> taskFactory,
+            ShutdownCallback shutdownCallback) throws InterruptedException {
+
         WorkersConfig workersConfig = new WorkersConfig(WORKERS_PROPERTIES);
         KafkaWorkers<K, V> kafkaWorkers = new KafkaWorkers<>(
                 workersConfig,
-                taskFactory
+                taskFactory,
+                shutdownCallback
         );
         kafkaWorkers.start();
 

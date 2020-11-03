@@ -1,5 +1,6 @@
 package com.rtbhouse.kafka.workers.impl;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.rtbhouse.kafka.workers.api.KafkaWorkers.Status.CANNOT_STOP_THREADS;
 import static com.rtbhouse.kafka.workers.api.KafkaWorkers.Status.CLOSED_GRACEFULLY;
 import static com.rtbhouse.kafka.workers.api.KafkaWorkers.Status.CLOSED_NOT_GRACEFULLY;
@@ -196,7 +197,7 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
         if (!executor.isTerminated()) {
             logger.warn("Cannot stop [{}] thread(s)", executor.getActiveCount());
         }
-        logger.info("kafka workers closed with status: {}", getStatus());
+        logger.info("kafka workers closed with status: {}", status);
 
         synchronized (shutdownLock) {
             shutdownLock.notifyAll();
@@ -253,15 +254,21 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
 
     public Status waitForShutdown() {
         synchronized (shutdownLock) {
-            while (!status.isTerminal()) {
+            while (!status.isTerminal() && shutdownThread.isAlive()) {
                 try {
-                    shutdownLock.wait();
+                    // timeout is needed to check whether a shutdownThread is still alive
+                    shutdownLock.wait(10_000L);
                 } catch (InterruptedException e) {
                     logger.error("interrupted", e);
                 }
             }
         }
 
-        return getStatus();
+        if (!status.isTerminal()) {
+            checkState(!shutdownThread.isAlive());
+            logger.error("[{}] died without setting a terminal status", shutdownThread.getName());
+        }
+
+        return status;
     }
 }
