@@ -1,31 +1,5 @@
 package com.rtbhouse.kafka.workers.impl;
 
-import static com.rtbhouse.kafka.workers.api.KafkaWorkers.Status.CANNOT_STOP_THREADS;
-import static com.rtbhouse.kafka.workers.api.KafkaWorkers.Status.CLOSED_GRACEFULLY;
-import static com.rtbhouse.kafka.workers.api.KafkaWorkers.Status.CLOSED_NOT_GRACEFULLY;
-import static com.rtbhouse.kafka.workers.api.KafkaWorkers.Status.CLOSING;
-import static com.rtbhouse.kafka.workers.api.KafkaWorkers.Status.CLOSING_INTERRUPTED;
-import static com.rtbhouse.kafka.workers.api.KafkaWorkers.Status.CREATED;
-import static com.rtbhouse.kafka.workers.api.KafkaWorkers.Status.SHUTDOWN;
-import static com.rtbhouse.kafka.workers.api.KafkaWorkers.Status.STARTED;
-import static com.rtbhouse.kafka.workers.api.KafkaWorkers.Status.STARTING;
-import static com.rtbhouse.kafka.workers.api.KafkaWorkers.Status.isTransitionAllowed;
-import static com.rtbhouse.kafka.workers.impl.metrics.WorkersMetrics.WORKER_THREAD_COUNT_METRIC_NAME;
-import static com.rtbhouse.kafka.workers.impl.metrics.WorkersMetrics.WORKER_THREAD_METRIC_GROUP;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
-
-import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
-
-import org.apache.kafka.common.TopicPartition;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.rtbhouse.kafka.workers.api.KafkaWorkers.Status;
 import com.rtbhouse.kafka.workers.api.ShutdownCallback;
 import com.rtbhouse.kafka.workers.api.WorkersConfig;
@@ -43,6 +17,32 @@ import com.rtbhouse.kafka.workers.impl.queues.QueuesManager;
 import com.rtbhouse.kafka.workers.impl.record.weigher.RecordWeigher;
 import com.rtbhouse.kafka.workers.impl.task.TaskManager;
 import com.rtbhouse.kafka.workers.impl.task.WorkerThread;
+import org.apache.kafka.common.TopicPartition;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+
+import static com.google.common.base.Preconditions.checkState;
+import static com.rtbhouse.kafka.workers.api.KafkaWorkers.Status.CANNOT_STOP_THREADS;
+import static com.rtbhouse.kafka.workers.api.KafkaWorkers.Status.CLOSED_GRACEFULLY;
+import static com.rtbhouse.kafka.workers.api.KafkaWorkers.Status.CLOSED_NOT_GRACEFULLY;
+import static com.rtbhouse.kafka.workers.api.KafkaWorkers.Status.CLOSING;
+import static com.rtbhouse.kafka.workers.api.KafkaWorkers.Status.CLOSING_INTERRUPTED;
+import static com.rtbhouse.kafka.workers.api.KafkaWorkers.Status.CREATED;
+import static com.rtbhouse.kafka.workers.api.KafkaWorkers.Status.SHUTDOWN;
+import static com.rtbhouse.kafka.workers.api.KafkaWorkers.Status.STARTED;
+import static com.rtbhouse.kafka.workers.api.KafkaWorkers.Status.STARTING;
+import static com.rtbhouse.kafka.workers.api.KafkaWorkers.Status.isTransitionAllowed;
+import static com.rtbhouse.kafka.workers.impl.metrics.WorkersMetrics.WORKER_THREAD_COUNT_METRIC_NAME;
+import static com.rtbhouse.kafka.workers.impl.metrics.WorkersMetrics.WORKER_THREAD_METRIC_GROUP;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class KafkaWorkersImpl<K, V> implements Partitioned {
 
@@ -196,7 +196,7 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
         if (!executor.isTerminated()) {
             logger.warn("Cannot stop [{}] thread(s)", executor.getActiveCount());
         }
-        logger.info("kafka workers closed with status: {}", getStatus());
+        logger.info("kafka workers closed with status: {}", status);
 
         synchronized (shutdownLock) {
             shutdownLock.notifyAll();
@@ -253,15 +253,21 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
 
     public Status waitForShutdown() {
         synchronized (shutdownLock) {
-            while (!status.isTerminal()) {
+            while (!status.isTerminal() && shutdownThread.isAlive()) {
                 try {
-                    shutdownLock.wait();
+                    // timeout is needed to check whether a shutdownThread is still alive
+                    shutdownLock.wait(10_000L);
                 } catch (InterruptedException e) {
                     logger.error("interrupted", e);
                 }
             }
         }
 
-        return getStatus();
+        if (!status.isTerminal()) {
+            checkState(!shutdownThread.isAlive());
+            logger.error("[{}] died without setting a terminal status", shutdownThread.getName());
+        }
+
+        return status;
     }
 }
