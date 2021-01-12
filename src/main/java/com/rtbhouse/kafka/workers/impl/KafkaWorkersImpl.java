@@ -1,6 +1,5 @@
 package com.rtbhouse.kafka.workers.impl;
 
-import static com.google.common.base.Preconditions.checkState;
 import static com.rtbhouse.kafka.workers.api.KafkaWorkers.Status.CANNOT_STOP_THREADS;
 import static com.rtbhouse.kafka.workers.api.KafkaWorkers.Status.CLOSED_GRACEFULLY;
 import static com.rtbhouse.kafka.workers.api.KafkaWorkers.Status.CLOSED_NOT_GRACEFULLY;
@@ -16,12 +15,15 @@ import static com.rtbhouse.kafka.workers.impl.metrics.WorkersMetrics.WORKER_THRE
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+
+import javax.annotation.Nullable;
 
 import org.apache.kafka.common.TopicPartition;
 import org.slf4j.Logger;
@@ -182,19 +184,14 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
             logger.error("interrupted", e);
         }
 
-        // then close and clean up any pending resources
-        for (WorkerThread<K, V> workerThread : workerThreads) {
-            closeThreadResources(workerThread);
-        }
-        closeThreadResources(consumerThread);
-        closeThreadResources(punctuatorThread);
-
         if (callback != null) {
             callback.onShutdown(exception);
         }
 
         setStatus(terminalStatus);
-        if (!executor.isTerminated()) {
+        if (executor.isTerminated()) {
+            workerThreads.clear();
+        } else {
             logger.warn("Cannot stop [{}] thread(s)", executor.getActiveCount());
         }
         logger.info("kafka workers closed with status: {}", status);
@@ -240,21 +237,19 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
         return false;
     }
 
-    private void closeThreadResources(AbstractWorkersThread thread) {
-        try {
-            thread.close();
-        } catch (Exception e) {
-            logger.warn("caught exception while closing resources for thread: {}", thread,  e);
-        }
-    }
-
     public Status getStatus() {
         return status;
     }
 
     public Status waitForShutdown() {
+        Instant closingStartedAt = null;
         synchronized (shutdownLock) {
-            while (!status.isTerminal() && shutdownThread.isAlive()) {
+            while (!status.isTerminal()
+                    && !timedOut(closingStartedAt, config.getShutdownTimeout().multipliedBy(2))
+                    && shutdownThread.isAlive()) {
+                if (status.equals(CLOSING) && closingStartedAt == null) {
+                    closingStartedAt = Instant.now();
+                }
                 try {
                     // timeout is needed to check whether a shutdownThread is still alive
                     shutdownLock.wait(10_000L);
@@ -265,10 +260,18 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
         }
 
         if (!status.isTerminal()) {
-            checkState(!shutdownThread.isAlive());
-            logger.error("[{}] died without setting a terminal status", shutdownThread.getName());
+            logger.error("[{}, alive={}] has not set a terminal status [status={}]",
+                    shutdownThread.getName(), shutdownThread.isAlive(), status);
         }
 
         return status;
+    }
+
+    private boolean timedOut(@Nullable Instant startedAt, Duration timeout) {
+        if (startedAt == null) {
+            return false;
+        }
+
+        return !Instant.now().isBefore(startedAt.plus(timeout));
     }
 }
