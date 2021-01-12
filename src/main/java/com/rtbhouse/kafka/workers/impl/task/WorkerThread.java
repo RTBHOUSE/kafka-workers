@@ -107,13 +107,10 @@ public class WorkerThread<K, V> extends AbstractWorkersThread {
     }
 
     @Override
-    public void finish() {
+    public void close() {
         // stopped has just been set to true
         taskManager.notifyTaskManager();
-    }
 
-    @Override
-    public void close() {
         for (WorkerTaskImpl<K, V> task : tasks) {
             task.close();
         }

@@ -33,9 +33,6 @@ public abstract class AbstractWorkersThread extends Thread {
 
     public abstract void process() throws InterruptedException;
 
-    public void finish() {
-    }
-
     public abstract void close();
 
     // used to shutdown current thread internally because of failure (see RecordStatusObserver)
@@ -68,9 +65,9 @@ public abstract class AbstractWorkersThread extends Thread {
             workers.shutdown(wrapIfNeeded(e));
         } finally {
             stopped = true;
-            finish();
+            close();
+            logger.info("thread {} stopped", name);
         }
-        logger.info("thread {} stopped", name);
     }
 
     private WorkersException wrapIfNeeded(Throwable e) {
