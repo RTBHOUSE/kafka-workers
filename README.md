@@ -25,7 +25,7 @@ The last but not least was simplicity (lightweight library, with almost pure Kaf
 
 ## Version
 
-Current version is **1.1.4-SNAPSHOT**
+Current version is **1.1.4**
 
 ## Requirements
 
@@ -33,14 +33,13 @@ You need Java 11 and at least Apache Kafka 2.0 to use this library.
 
 ## Installation
 
-Releases are distributed on [mvn repository](https://mvnrepository.com/artifact/com.rtbhouse/
-rkers):
+Releases are distributed on [mvn repository](https://mvnrepository.com/artifact/com.rtbhouse/kafka-workers):
 
 ```xml
 <dependency>
     <groupId>com.rtbhouse</groupId>
     <artifactId>kafka-workers</artifactId>
-    <version>1.1.4-SNAPSHOT</version>
+    <version>1.1.4</version>
 </dependency>
 ```
 
