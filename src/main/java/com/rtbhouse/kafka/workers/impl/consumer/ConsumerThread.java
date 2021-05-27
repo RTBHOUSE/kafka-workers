@@ -111,7 +111,7 @@ public class ConsumerThread<K, V> extends AbstractWorkersThread implements Parti
                 consumer.paused());
         if (!partitionsToPause.isEmpty()) {
             consumer.pause(partitionsToPause);
-            logger.warn("paused partitions: {}", partitionsToPause);
+            logger.info("paused partitions: {}", partitionsToPause);
             for (TopicPartition partition : partitionsToPause) {
                 metrics.recordSensor(WorkersMetrics.PAUSED_PARTITIONS_METRIC, partition, 1L);
             }

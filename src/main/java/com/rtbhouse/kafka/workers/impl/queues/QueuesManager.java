@@ -123,7 +123,7 @@ public class QueuesManager<K, V> implements Partitioned {
           the total limit is exceeded to prevent OOME.
          */
         if (totalSizeBytes >= queuesTotalSizeBytes) {
-            logger.warn("total size in bytes: {} exceeded (limit: {} {})",
+            logger.info("total size in bytes: {} exceeded (limit: {} {})",
                     totalSizeBytes, queuesTotalSizeBytes,
                     diffPctString(totalSizeBytes, queuesTotalSizeBytes));
             partitionsToPause.addAll(assigned);
@@ -133,7 +133,7 @@ public class QueuesManager<K, V> implements Partitioned {
         for (WorkerSubpartition subpartition : subpartitionSupplier.subpartitions(assigned)) {
             long queueSizeBytes = sizesInBytes.get(subpartition);
             if (queueSizeBytes >= queueSizeBytesToPause && !paused.contains(subpartition.topicPartition())) {
-                logger.warn("size in bytes: {} for: {} (events count: {}) exceeded (limit: {} {})",
+                logger.info("size in bytes: {} for: {} (events count: {}) exceeded (limit: {} {})",
                         queueSizeBytes, subpartition, queues.get(subpartition).size(),
                         queueSizeBytesToPause, diffPctString(queueSizeBytes, queueSizeBytesToPause));
                 partitionsToPause.add(subpartition.topicPartition());
