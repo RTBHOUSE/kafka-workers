@@ -49,6 +49,9 @@ public class ConsumerThread<K, V> extends AbstractWorkersThread implements Parti
     private final OffsetCommitCallback commitCallback;
     private final RecordWeigher<K, V> recordWeigher;
 
+    private boolean waitBeforeClose = true;
+    private final Object waitBeforeCloseLock = new Object();
+
     private long commitTime = System.currentTimeMillis();
 
     public ConsumerThread(
@@ -156,6 +159,22 @@ public class ConsumerThread<K, V> extends AbstractWorkersThread implements Parti
 
     private TopicPartition topicPartition(ConsumerRecord<K, V> record) {
         return new TopicPartition(record.topic(), record.partition());
+    }
+
+    @Override
+    protected void waitBeforeClose() throws InterruptedException {
+        synchronized (waitBeforeCloseLock) {
+            while (waitBeforeClose) {
+                waitBeforeCloseLock.wait();
+            }
+        }
+    }
+
+    public void allowToClose() {
+        synchronized (waitBeforeCloseLock) {
+            waitBeforeClose = false;
+            waitBeforeCloseLock.notify();
+        }
     }
 
     @Override
