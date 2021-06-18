@@ -15,6 +15,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
@@ -191,9 +192,10 @@ public class DefaultOffsetsState implements OffsetsState {
     }
 
     private boolean shouldComputeMetricInfo(TopicPartition partition) {
-        return Optional.ofNullable(lastMetricInfos.get(partition))
-                .map(deque -> deque.isEmpty() || metricInfoMaxDelay.isZero() || isOlderThan(deque.getLast().computedAt, metricInfoMaxDelay))
-                .orElse(true);
+        return false;
+//        return Optional.ofNullable(lastMetricInfos.get(partition))
+//                .map(deque -> deque.isEmpty() || metricInfoMaxDelay.isZero() || isOlderThan(deque.getLast().computedAt, metricInfoMaxDelay))
+//                .orElse(true);
     }
 
     private int cmpMetricInfoByNumRanges(TopicPartitionMetricInfo info1, TopicPartitionMetricInfo info2) {
@@ -324,6 +326,17 @@ public class DefaultOffsetsState implements OffsetsState {
         }
 
         computeMetricInfo(partition);
+    }
+
+    @Override
+    public long getProcessedUncommittedRecordsTotal() {
+        return getProcessedUncommittedRecordsByTopic().values().stream().mapToLong(Long::longValue).sum();
+    }
+
+    private Map<TopicPartition, Long> getProcessedUncommittedRecordsByTopic() {
+        return processedOffsetsMap.entrySet().stream()
+                .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey,
+                        entry -> entry.getValue().stream().mapToLong(ClosedRange::size).sum()));
     }
 
     public class TopicPartitionMetricInfo {

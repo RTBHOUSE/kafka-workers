@@ -19,9 +19,11 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import javax.annotation.Nullable;
 
@@ -99,24 +101,21 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
 
         final int workerThreadsNum = config.getInt(WorkersConfig.WORKER_THREADS_NUM);
         consumerThread = new ConsumerThread<>(config, metrics, this, queueManager, subpartitionSupplier, offsetsState, recordWeigher);
+        consumerThread.setDaemon(true);
         for (int i = 0; i < workerThreadsNum; i++) {
             workerThreads.add(new WorkerThread<>(i, config, metrics, this,  taskManager, queueManager, offsetsState));
         }
         punctuatorThread = new PunctuatorThread<>(config, metrics, this, workerThreads);
+        punctuatorThread.setDaemon(true);
 
-        // number of threads includes:
-        // - configurable amount of worker threads
-        // - plus one consumer thread
-        // - plus one punctuator thread
-        final int allThreadsNum = workerThreadsNum + 2;
-        executor = new ThreadPoolExecutor(allThreadsNum, allThreadsNum,
+        executor = new ThreadPoolExecutor(workerThreadsNum, workerThreadsNum,
                 0L, TimeUnit.MILLISECONDS,
                 new LinkedBlockingQueue<>());
-        executor.execute(consumerThread);
+        consumerThread.start();
         for (WorkerThread<K, V> workerThread : workerThreads) {
             executor.execute(workerThread);
         }
-        executor.execute(punctuatorThread);
+        punctuatorThread.start();
 
         setStatus(STARTED);
         logger.info("kafka workers started");
@@ -149,9 +148,9 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
 
         metrics.removeMetric(WORKER_THREAD_METRIC_GROUP, WORKER_THREAD_COUNT_METRIC_NAME);
 
-        // firstly stop threads processing
         consumerThread.shutdown();
         punctuatorThread.shutdown();
+
         for (WorkerThread<K, V> workerThread : workerThreads) {
             workerThread.shutdown();
         }
@@ -184,10 +183,22 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
             logger.error("interrupted", e);
         }
 
+        consumerThread.allowToClose();
+
+        try {
+            CompletableFuture.allOf(
+                    waitForCloseAsync(punctuatorThread, config.getPunctuatorThreadClosingTimeout()),
+                    waitForCloseAsync(consumerThread, config.getConsumerThreadClosingTimeout())
+            ).get();
+        } catch (Exception e) {
+            logger.warn("Waiting for closing threads failed", e);
+        }
+
         if (callback != null) {
             callback.onShutdown(exception);
         }
 
+        // TODO: terminalStatus does not reflect consumer and punctuator threads
         setStatus(terminalStatus);
         if (executor.isTerminated()) {
             workerThreads.clear();
@@ -199,6 +210,43 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
         synchronized (shutdownLock) {
             shutdownLock.notifyAll();
         }
+    }
+
+    private CompletableFuture<Void> waitForCloseAsync(AbstractWorkersThread thread, Duration joinDuration) {
+
+        return CompletableFuture.runAsync(() -> {
+            try {
+                thread.join(joinDuration.toMillis());
+            } catch (InterruptedException e) {
+                logger.error("interrupted", e);
+            }
+
+            if (!thread.isAlive()) {
+                return;
+            }
+
+            logger.warn("Thread {} couldn't be stopped in {}s (interrupting).", thread.getName(), joinDuration.toSeconds());
+            thread.interrupt();
+
+            try {
+                thread.join(joinDuration.toMillis());
+            } catch (InterruptedException e) {
+                logger.error("interrupted", e);
+            }
+
+            if (!thread.isAlive()) {
+                return;
+            }
+
+            logger.warn("Thread {} is still alive {}s after interruption.", thread.getName(), joinDuration.toSeconds());
+        });
+    }
+
+    private Collection<TopicPartition> allPartitions() {
+        return workerThreads.stream()
+                .flatMap(workerThread -> workerThread.allPartitions().stream())
+                .distinct()
+                .collect(Collectors.toUnmodifiableList());
     }
 
     @Override
@@ -245,7 +293,8 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
         Instant closingStartedAt = null;
         synchronized (shutdownLock) {
             while (!status.isTerminal()
-                    && !timedOut(closingStartedAt, config.getShutdownTimeout().multipliedBy(2))
+                    // TODO: it was .multipliedBy(2) before
+                    && !timedOut(closingStartedAt, config.getShutdownTimeout().multipliedBy(4))
                     && shutdownThread.isAlive()) {
                 if (status.equals(CLOSING) && closingStartedAt == null) {
                     closingStartedAt = Instant.now();

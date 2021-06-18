@@ -65,9 +65,22 @@ public abstract class AbstractWorkersThread extends Thread {
             workers.shutdown(wrapIfNeeded(e));
         } finally {
             stopped = true;
-            close();
+            try {
+                waitBeforeClose();
+            } catch (InterruptedException e) {
+                logger.error("interrupted", e);
+            }
+            try {
+                close();
+            } catch (Throwable e) {
+                logger.error("Closing thread failed", e);
+            }
             logger.info("thread {} stopped", name);
         }
+    }
+
+    protected void waitBeforeClose() throws InterruptedException {
+        // do nothing
     }
 
     private WorkersException wrapIfNeeded(Throwable e) {

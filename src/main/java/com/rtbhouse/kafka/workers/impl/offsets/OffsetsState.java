@@ -28,4 +28,6 @@ public interface OffsetsState extends Partitioned {
     Map<TopicPartition, OffsetAndMetadata> getOffsetsToCommit();
 
     void removeCommitted(Map<TopicPartition, OffsetAndMetadata> offsetsAndMetadata);
+
+    long getProcessedUncommittedRecordsTotal();
 }
