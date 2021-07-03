@@ -191,9 +191,10 @@ public class DefaultOffsetsState implements OffsetsState {
     }
 
     private boolean shouldComputeMetricInfo(TopicPartition partition) {
-        return Optional.ofNullable(lastMetricInfos.get(partition))
-                .map(deque -> deque.isEmpty() || metricInfoMaxDelay.isZero() || isOlderThan(deque.getLast().computedAt, metricInfoMaxDelay))
-                .orElse(true);
+        return false;
+//        return Optional.ofNullable(lastMetricInfos.get(partition))
+//                .map(deque -> deque.isEmpty() || metricInfoMaxDelay.isZero() || isOlderThan(deque.getLast().computedAt, metricInfoMaxDelay))
+//                .orElse(true);
     }
 
     private int cmpMetricInfoByNumRanges(TopicPartitionMetricInfo info1, TopicPartitionMetricInfo info2) {
