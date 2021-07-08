@@ -182,12 +182,6 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
         }
 
         consumerThread.allowToClose();
-        try {
-            consumerThread.join(10_000);
-            punctuatorThread.join(10_000);
-        } catch (InterruptedException e) {
-            logger.error("interrupted", e);
-        }
 
         joinOrInterruptThread(punctuatorThread);
         joinOrInterruptThread(consumerThread);

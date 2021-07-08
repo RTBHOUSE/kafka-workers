@@ -70,7 +70,11 @@ public abstract class AbstractWorkersThread extends Thread {
             } catch (InterruptedException e) {
                 logger.error("interrupted", e);
             }
-            close();
+            try {
+                close();
+            } catch (Throwable e) {
+                logger.error("Closing thread failed", e);
+            }
             logger.info("thread {} stopped", name);
         }
     }
