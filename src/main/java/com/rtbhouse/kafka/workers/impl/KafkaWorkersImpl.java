@@ -19,6 +19,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -149,6 +150,8 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
 
         consumerThread.shutdown();
         punctuatorThread.shutdown();
+        CompletableFuture<Void> punctuatorCloseFuture = waitForCloseAsync(punctuatorThread, config.getPunctuatorThreadClosingTimeout());
+
         for (WorkerThread<K, V> workerThread : workerThreads) {
             workerThread.shutdown();
         }
@@ -182,9 +185,16 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
         }
 
         consumerThread.allowToClose();
+        CompletableFuture<Void> consumerCloseFuture = waitForCloseAsync(consumerThread, config.getConsumerThreadClosingTimeout());
 
-        joinOrInterruptThread(punctuatorThread);
-        joinOrInterruptThread(consumerThread);
+        try {
+            CompletableFuture.allOf(
+                    punctuatorCloseFuture,
+                    consumerCloseFuture
+            ).get();
+        } catch (Exception e) {
+            logger.warn("Waiting for closing threads failed", e);
+        }
 
         if (callback != null) {
             callback.onShutdown(exception);
@@ -204,34 +214,34 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
         }
     }
 
-    private void joinOrInterruptThread(AbstractWorkersThread thread) {
+    private CompletableFuture<Void> waitForCloseAsync(AbstractWorkersThread thread, Duration joinDuration) {
 
-        Duration joinDuration = Duration.ofSeconds(10);
+        return CompletableFuture.runAsync(() -> {
+            try {
+                thread.join(joinDuration.toSeconds());
+            } catch (InterruptedException e) {
+                logger.error("interrupted", e);
+            }
 
-        try {
-            thread.join(joinDuration.toSeconds());
-        } catch (InterruptedException e) {
-            logger.error("interrupted", e);
-        }
+            if (!thread.isAlive()) {
+                return;
+            }
 
-        if (!thread.isAlive()) {
-            return;
-        }
+            logger.warn("Thread {} couldn't be stopped in {}s (interrupting).", thread.getName(), joinDuration.toSeconds());
+            thread.interrupt();
 
-        logger.warn("Thread {} couldn't be stopped in {}s.", thread, joinDuration.toSeconds());
-        thread.interrupt();
+            try {
+                thread.join(joinDuration.toSeconds());
+            } catch (InterruptedException e) {
+                logger.error("interrupted", e);
+            }
 
-        try {
-            thread.join(joinDuration.toSeconds());
-        } catch (InterruptedException e) {
-            logger.error("interrupted", e);
-        }
+            if (!thread.isAlive()) {
+                return;
+            }
 
-        if (!thread.isAlive()) {
-            return;
-        }
-
-        logger.warn("Thread {} is still alive {}s after interruption.", thread, joinDuration.toSeconds());
+            logger.warn("Thread {} is still alive {}s after interruption.", thread.getName(), joinDuration.toSeconds());
+        });
     }
 
     private Collection<TopicPartition> allPartitions() {

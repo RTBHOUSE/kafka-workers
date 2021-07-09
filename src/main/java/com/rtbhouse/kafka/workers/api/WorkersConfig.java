@@ -102,7 +102,7 @@ public class WorkersConfig extends AbstractConfig {
     public static final String WORKER_TASK_PREFIX = "worker.task.";
 
     public static final String WORKER_SHUTDOWN_TIMEOUT_MS = "worker.shutdown.timeout.ms";
-    private static final String WORKER_SHUTDOWN_TIMEOUT_MS_DOC = "Time in milliseconds to wait for all threads to finish their execution";
+    private static final String WORKER_SHUTDOWN_TIMEOUT_MS_DOC = "Time in milliseconds to wait for all worker threads to finish their execution";
     private static final long WORKER_SHUTDOWN_TIMEOUT_MS_DEFAULT = Duration.ofMinutes(1).toMillis();
 
     /**
@@ -135,6 +135,14 @@ public class WorkersConfig extends AbstractConfig {
     public static final String METRIC_REPORTER_CLASSES = CommonClientConfigs.METRIC_REPORTER_CLASSES_CONFIG;
     private static final String METRIC_REPORTER_CLASSES_DOC = CommonClientConfigs.METRIC_REPORTER_CLASSES_DOC;
     private static final String METRIC_REPORTER_CLASSES_DEFAULT = "";
+
+    private static final String PUNCTUATOR_THREAD_CLOSING_TIMEOUT_MS = "punctuator.thread.closing.timeout.ms";
+    private static final String PUNCTUATOR_THREAD_CLOSING_TIMEOUT_MS_DOC = "Time in millis to wait for a punctuator thread to finish.";
+    private static final long PUNCTUATOR_THREAD_CLOSING_TIMEOUT_MS_DEFAULT = 10_000;
+
+    private static final String CONSUMER_THREAD_CLOSING_TIMEOUT_MS = "consumer.thread.closing.timeout.ms";
+    private static final String CONSUMER_THREAD_CLOSING_TIMEOUT_MS_DOC = "Time in millis to wait for a consumer thread to finish (additional time after closing all worker threads).";
+    private static final long CONSUMER_THREAD_CLOSING_TIMEOUT_MS_DEFAULT = 10_000;
 
     private static final ConfigDef CONFIG;
 
@@ -228,7 +236,17 @@ public class WorkersConfig extends AbstractConfig {
                         Type.LIST,
                         METRIC_REPORTER_CLASSES_DEFAULT,
                         Importance.LOW,
-                        METRIC_REPORTER_CLASSES_DOC);
+                        METRIC_REPORTER_CLASSES_DOC)
+                .define(CONSUMER_THREAD_CLOSING_TIMEOUT_MS,
+                        Type.LONG,
+                        CONSUMER_THREAD_CLOSING_TIMEOUT_MS_DEFAULT,
+                        Importance.LOW,
+                        CONSUMER_THREAD_CLOSING_TIMEOUT_MS_DOC)
+                .define(PUNCTUATOR_THREAD_CLOSING_TIMEOUT_MS,
+                        Type.LONG,
+                        PUNCTUATOR_THREAD_CLOSING_TIMEOUT_MS_DEFAULT,
+                        Importance.LOW,
+                        PUNCTUATOR_THREAD_CLOSING_TIMEOUT_MS_DOC);;
     }
 
     private static final Map<String, Object> CONSUMER_CONFIG_FINALS;
@@ -339,5 +357,13 @@ public class WorkersConfig extends AbstractConfig {
 
     public long getConsumerCommitIntervalMs() {
         return getLong(WorkersConfig.CONSUMER_COMMIT_INTERVAL_MS);
+    }
+
+    public Duration getPunctuatorThreadClosingTimeout() {
+        return Duration.ofMillis(getLong(WorkersConfig.PUNCTUATOR_THREAD_CLOSING_TIMEOUT_MS));
+    }
+
+    public Duration getConsumerThreadClosingTimeout() {
+        return Duration.ofMillis(getLong(WorkersConfig.CONSUMER_THREAD_CLOSING_TIMEOUT_MS));
     }
 }
