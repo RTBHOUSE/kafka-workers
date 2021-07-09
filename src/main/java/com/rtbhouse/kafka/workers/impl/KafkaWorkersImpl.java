@@ -150,7 +150,6 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
 
         consumerThread.shutdown();
         punctuatorThread.shutdown();
-        CompletableFuture<Void> punctuatorCloseFuture = waitForCloseAsync(punctuatorThread, config.getPunctuatorThreadClosingTimeout());
 
         for (WorkerThread<K, V> workerThread : workerThreads) {
             workerThread.shutdown();
@@ -185,12 +184,11 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
         }
 
         consumerThread.allowToClose();
-        CompletableFuture<Void> consumerCloseFuture = waitForCloseAsync(consumerThread, config.getConsumerThreadClosingTimeout());
 
         try {
             CompletableFuture.allOf(
-                    punctuatorCloseFuture,
-                    consumerCloseFuture
+                    waitForCloseAsync(punctuatorThread, config.getPunctuatorThreadClosingTimeout()),
+                    waitForCloseAsync(consumerThread, config.getConsumerThreadClosingTimeout())
             ).get();
         } catch (Exception e) {
             logger.warn("Waiting for closing threads failed", e);
@@ -218,7 +216,7 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
 
         return CompletableFuture.runAsync(() -> {
             try {
-                thread.join(joinDuration.toSeconds());
+                thread.join(joinDuration.toMillis());
             } catch (InterruptedException e) {
                 logger.error("interrupted", e);
             }
@@ -231,7 +229,7 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
             thread.interrupt();
 
             try {
-                thread.join(joinDuration.toSeconds());
+                thread.join(joinDuration.toMillis());
             } catch (InterruptedException e) {
                 logger.error("interrupted", e);
             }

@@ -22,6 +22,7 @@ import com.google.common.collect.Streams;
 import com.rtbhouse.kafka.workers.api.WorkersConfig;
 import com.rtbhouse.kafka.workers.api.WorkersException;
 import com.rtbhouse.kafka.workers.api.partitioner.WorkerSubpartition;
+import com.rtbhouse.kafka.workers.api.record.RecordProcessingGuarantee;
 import com.rtbhouse.kafka.workers.api.record.WorkerRecord;
 import com.rtbhouse.kafka.workers.impl.AbstractWorkersThread;
 import com.rtbhouse.kafka.workers.impl.KafkaWorkersImpl;
@@ -180,6 +181,9 @@ public class ConsumerThread<K, V> extends AbstractWorkersThread implements Parti
     @Override
     public void close() {
         commitSync();
+        if (RecordProcessingGuarantee.AT_LEAST_ONCE.equals(config.getRecordProcessingGuarantee())) {
+            logger.info("Uncommitted processed records (probably generating duplicates in the next run) = {}", offsetsState.getProcessedUncommittedRecordsTotal());
+        }
         consumer.close();
         metrics.removeConsumerThreadMetrics();
     }

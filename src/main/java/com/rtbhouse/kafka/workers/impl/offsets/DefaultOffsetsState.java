@@ -15,6 +15,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
@@ -325,6 +326,17 @@ public class DefaultOffsetsState implements OffsetsState {
         }
 
         computeMetricInfo(partition);
+    }
+
+    @Override
+    public long getProcessedUncommittedRecordsTotal() {
+        return getProcessedUncommittedRecordsByTopic().values().stream().mapToLong(Long::longValue).sum();
+    }
+
+    private Map<TopicPartition, Long> getProcessedUncommittedRecordsByTopic() {
+        return processedOffsetsMap.entrySet().stream()
+                .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey,
+                        entry -> entry.getValue().stream().mapToLong(ClosedRange::size).sum()));
     }
 
     public class TopicPartitionMetricInfo {
