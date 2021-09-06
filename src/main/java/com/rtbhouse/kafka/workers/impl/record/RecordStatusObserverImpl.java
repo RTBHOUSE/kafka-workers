@@ -17,10 +17,9 @@ public class RecordStatusObserverImpl<K, V> implements RecordStatusObserver {
 
     private static final Logger logger = LoggerFactory.getLogger(RecordStatusObserverImpl.class);
 
-    // TODO: revert public -> protected (or event private) for all fields
-    public final WorkerSubpartition subpartition;
-    public final long offset;
-    public final Context<K, V> context;
+    private final WorkerSubpartition subpartition;
+    private final long offset;
+    private final Context<K, V> context;
 
     public RecordStatusObserverImpl(
             WorkerRecord<K, V> record,
