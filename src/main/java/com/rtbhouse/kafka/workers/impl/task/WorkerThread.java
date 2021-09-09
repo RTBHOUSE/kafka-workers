@@ -3,15 +3,12 @@ package com.rtbhouse.kafka.workers.impl.task;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.stream.Collectors;
 
-import org.apache.kafka.common.TopicPartition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.rtbhouse.kafka.workers.api.WorkersConfig;
 import com.rtbhouse.kafka.workers.api.WorkersException;
-import com.rtbhouse.kafka.workers.api.partitioner.WorkerSubpartition;
 import com.rtbhouse.kafka.workers.api.record.RecordStatusObserver;
 import com.rtbhouse.kafka.workers.api.record.WorkerRecord;
 import com.rtbhouse.kafka.workers.impl.AbstractWorkersThread;
@@ -194,13 +191,4 @@ public class WorkerThread<K, V> extends AbstractWorkersThread {
         }
         return tasksToProcess;
     }
-
-    public List<TopicPartition> allPartitions() {
-        return tasks.stream()
-                .map(WorkerTaskImpl::subpartition)
-                .map(WorkerSubpartition::topicPartition)
-                .distinct()
-                .collect(Collectors.toUnmodifiableList());
-    }
-
 }

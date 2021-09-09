@@ -23,7 +23,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 import javax.annotation.Nullable;
 
@@ -101,12 +100,12 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
 
         final int workerThreadsNum = config.getInt(WorkersConfig.WORKER_THREADS_NUM);
         consumerThread = new ConsumerThread<>(config, metrics, this, queueManager, subpartitionSupplier, offsetsState, recordWeigher);
-        consumerThread.setDaemon(true);
+        consumerThread.setDaemon(false);
         for (int i = 0; i < workerThreadsNum; i++) {
             workerThreads.add(new WorkerThread<>(i, config, metrics, this,  taskManager, queueManager, offsetsState));
         }
         punctuatorThread = new PunctuatorThread<>(config, metrics, this, workerThreads);
-        punctuatorThread.setDaemon(true);
+        punctuatorThread.setDaemon(false);
 
         executor = new ThreadPoolExecutor(workerThreadsNum, workerThreadsNum,
                 0L, TimeUnit.MILLISECONDS,
@@ -242,13 +241,6 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
         });
     }
 
-    private Collection<TopicPartition> allPartitions() {
-        return workerThreads.stream()
-                .flatMap(workerThread -> workerThread.allPartitions().stream())
-                .distinct()
-                .collect(Collectors.toUnmodifiableList());
-    }
-
     @Override
     public void register(Collection<TopicPartition> partitions) throws InterruptedException {
         logger.info("partitions registered: {}", partitions);
@@ -291,10 +283,12 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
 
     public Status waitForShutdown() {
         Instant closingStartedAt = null;
+        Duration shutdownTotalLimit = config.getShutdownTimeout().multipliedBy(2) // shutdown + shutdownNow
+                .plus(config.getConsumerThreadClosingTimeout())
+                .plus(config.getPunctuatorThreadClosingTimeout());
         synchronized (shutdownLock) {
             while (!status.isTerminal()
-                    // TODO: it was .multipliedBy(2) before
-                    && !timedOut(closingStartedAt, config.getShutdownTimeout().multipliedBy(4))
+                    && !timedOut(closingStartedAt, shutdownTotalLimit)
                     && shutdownThread.isAlive()) {
                 if (status.equals(CLOSING) && closingStartedAt == null) {
                     closingStartedAt = Instant.now();

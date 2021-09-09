@@ -51,7 +51,7 @@ public class DefaultOffsetsState implements OffsetsState {
 
     private final ConcurrentHashMap<TopicPartition, TopicPartitionMetricInfo> currMetricInfos = new ConcurrentHashMap<>();
 
-    // TODO: Deque inside is not thread-safe (is it a problem or not?)
+    // TODO: Deque inside is not thread-safe (there should be a single thread computing MetricInfos)
     private final ConcurrentHashMap<TopicPartition, Deque<TopicPartitionMetricInfo>> lastMetricInfos = new ConcurrentHashMap<>();
 
     public DefaultOffsetsState(WorkersConfig config, WorkersMetrics metrics) {
@@ -89,7 +89,7 @@ public class DefaultOffsetsState implements OffsetsState {
     public TopicPartitionMetricInfo getMaxMetricInfo(TopicPartition partition) {
         Deque<TopicPartitionMetricInfo> deque = lastMetricInfos.computeIfAbsent(partition,
                 key -> new ArrayDeque<>(ImmutableList.of(getCurrMetricInfo(key))));
-        // TODO: This synchronize does not protect against anything (???)
+        // TODO: check whether synchronization on deques with MetricInfos is consistent and remove if not needed.
         synchronized (deque) {
             removeOldMetricInfos(deque);
             return deque.stream().max(this::cmpMetricInfoByNumRanges).orElseGet(() -> getCurrMetricInfo(partition));
