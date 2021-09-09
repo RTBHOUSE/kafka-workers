@@ -16,13 +16,17 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.stream.Stream;
 
 import javax.annotation.Nullable;
 
@@ -185,24 +189,36 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
         consumerThread.allowToClose();
 
         try {
+            Duration remainingThreadsWaitForClose = Stream.of(
+                    config.getConsumerThreadClosingTimeout(), config.getPunctuatorThreadClosingTimeout())
+                    .max(Comparator.naturalOrder())
+                    .get()
+                    .plus(5, ChronoUnit.SECONDS);
+
             CompletableFuture.allOf(
-                    waitForCloseAsync(punctuatorThread, config.getPunctuatorThreadClosingTimeout()),
-                    waitForCloseAsync(consumerThread, config.getConsumerThreadClosingTimeout())
-            ).get();
+                    waitForCloseAsync(consumerThread, config.getConsumerThreadClosingTimeout()),
+                    waitForCloseAsync(punctuatorThread, config.getPunctuatorThreadClosingTimeout())
+            ).get(remainingThreadsWaitForClose.toMillis(), MILLISECONDS);
+        } catch (InterruptedException e) {
+            terminalStatus = CLOSING_INTERRUPTED;
+            logger.error("interrupted", e);
+        } catch (TimeoutException e) {
+            terminalStatus = CANNOT_STOP_THREADS;
+            logErrorIfThreadIsAlive(consumerThread);
+            logErrorIfThreadIsAlive(punctuatorThread);
         } catch (Exception e) {
-            logger.warn("Waiting for closing threads failed", e);
+            logger.error("Waiting for closing threads failed", e);
         }
 
         if (callback != null) {
             callback.onShutdown(exception);
         }
 
-        // TODO: terminalStatus does not reflect consumer and punctuator threads
         setStatus(terminalStatus);
         if (executor.isTerminated()) {
             workerThreads.clear();
         } else {
-            logger.warn("Cannot stop [{}] thread(s)", executor.getActiveCount());
+            logger.error("Couldn't stop [{}] worker thread(s)", executor.getActiveCount());
         }
         logger.info("kafka workers closed with status: {}", status);
 
@@ -211,11 +227,19 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
         }
     }
 
-    private CompletableFuture<Void> waitForCloseAsync(AbstractWorkersThread thread, Duration joinDuration) {
+    private void logErrorIfThreadIsAlive(Thread thread) {
+        if (thread.isAlive()) {
+            logger.error("Couldn't stop [{}]", thread.getName());
+        }
+    }
+
+    private CompletableFuture<Void> waitForCloseAsync(AbstractWorkersThread thread, Duration totalTimeout) {
+
+        Duration singleJoinTimeout = totalTimeout.dividedBy(2);
 
         return CompletableFuture.runAsync(() -> {
             try {
-                thread.join(joinDuration.toMillis());
+                thread.join(singleJoinTimeout.toMillis());
             } catch (InterruptedException e) {
                 logger.error("interrupted", e);
             }
@@ -224,11 +248,11 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
                 return;
             }
 
-            logger.warn("Thread {} couldn't be stopped in {}s (interrupting).", thread.getName(), joinDuration.toSeconds());
+            logger.warn("Thread [{}] has not finished in {}s (calling interrupt).", thread.getName(), singleJoinTimeout.toSeconds());
             thread.interrupt();
 
             try {
-                thread.join(joinDuration.toMillis());
+                thread.join(singleJoinTimeout.toMillis());
             } catch (InterruptedException e) {
                 logger.error("interrupted", e);
             }
@@ -237,7 +261,14 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
                 return;
             }
 
-            logger.warn("Thread {} is still alive {}s after interruption.", thread.getName(), joinDuration.toSeconds());
+            logger.warn("Thread [{}] is still alive {}s after interruption.", thread.getName(), singleJoinTimeout.toSeconds());
+
+            // last join without timeout (handling TimeoutException outside)
+            try {
+                thread.join();
+            } catch (InterruptedException e) {
+                logger.error("interrupted", e);
+            }
         });
     }
 
