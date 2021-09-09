@@ -191,5 +191,4 @@ public class WorkerThread<K, V> extends AbstractWorkersThread {
         }
         return tasksToProcess;
     }
-
 }

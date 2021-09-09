@@ -22,6 +22,7 @@ import com.google.common.collect.Streams;
 import com.rtbhouse.kafka.workers.api.WorkersConfig;
 import com.rtbhouse.kafka.workers.api.WorkersException;
 import com.rtbhouse.kafka.workers.api.partitioner.WorkerSubpartition;
+import com.rtbhouse.kafka.workers.api.record.RecordProcessingGuarantee;
 import com.rtbhouse.kafka.workers.api.record.WorkerRecord;
 import com.rtbhouse.kafka.workers.impl.AbstractWorkersThread;
 import com.rtbhouse.kafka.workers.impl.KafkaWorkersImpl;
@@ -48,6 +49,9 @@ public class ConsumerThread<K, V> extends AbstractWorkersThread implements Parti
     private final ConsumerRebalanceListenerImpl<K, V> listener;
     private final OffsetCommitCallback commitCallback;
     private final RecordWeigher<K, V> recordWeigher;
+
+    private boolean waitBeforeClose = true;
+    private final Object waitBeforeCloseLock = new Object();
 
     private long commitTime = System.currentTimeMillis();
 
@@ -159,8 +163,27 @@ public class ConsumerThread<K, V> extends AbstractWorkersThread implements Parti
     }
 
     @Override
+    protected void waitBeforeClose() throws InterruptedException {
+        synchronized (waitBeforeCloseLock) {
+            while (waitBeforeClose) {
+                waitBeforeCloseLock.wait();
+            }
+        }
+    }
+
+    public void allowToClose() {
+        synchronized (waitBeforeCloseLock) {
+            waitBeforeClose = false;
+            waitBeforeCloseLock.notify();
+        }
+    }
+
+    @Override
     public void close() {
         commitSync();
+        if (RecordProcessingGuarantee.AT_LEAST_ONCE.equals(config.getRecordProcessingGuarantee())) {
+            logger.info("Uncommitted processed records (probably generating duplicates in the next run) = {}", offsetsState.getProcessedUncommittedRecordsTotal());
+        }
         consumer.close();
         metrics.removeConsumerThreadMetrics();
     }

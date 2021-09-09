@@ -17,9 +17,9 @@ public class RecordStatusObserverImpl<K, V> implements RecordStatusObserver {
 
     private static final Logger logger = LoggerFactory.getLogger(RecordStatusObserverImpl.class);
 
-    protected final WorkerSubpartition subpartition;
-    protected final long offset;
-    protected final Context<K, V> context;
+    private final WorkerSubpartition subpartition;
+    private final long offset;
+    private final Context<K, V> context;
 
     public RecordStatusObserverImpl(
             WorkerRecord<K, V> record,
