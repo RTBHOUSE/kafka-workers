@@ -6,6 +6,7 @@ import static com.rtbhouse.kafka.workers.impl.offsets.OffsetStatus.PROCESSED;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 import org.apache.kafka.common.TopicPartition;
@@ -15,7 +16,6 @@ import org.apache.kafka.common.metrics.Metrics;
 import org.apache.kafka.common.metrics.MetricsReporter;
 import org.apache.kafka.common.metrics.Sensor;
 import org.apache.kafka.common.metrics.stats.Avg;
-import org.apache.kafka.common.metrics.stats.Count;
 import org.apache.kafka.common.metrics.stats.Max;
 import org.apache.kafka.common.metrics.stats.Min;
 import org.apache.kafka.common.metrics.stats.Rate;
@@ -59,6 +59,8 @@ public class WorkersMetrics {
     public static final String OFFSET_RANGES_CONSUMED_COUNT = "offset-ranges.consumed.count";
     public static final String OFFSET_RANGES_PROCESSED_COUNT = "offset-ranges.processed.count";
 
+    public static final String METRIC_INFO_COMPUTE_TIME_METRIC = "offsets-state.topic-partition-metric-info.compute-time";
+
     private static final List<String> ALL_OFFSETS_STATE_METRIC_NAMES = ImmutableList.of(
             OFFSETS_CONSUMED_COUNT,
             OFFSETS_PROCESSED_COUNT,
@@ -84,7 +86,7 @@ public class WorkersMetrics {
                     checkState(sensor.add(metrics.metricName("min", sensor.name()), new Min()));
                     checkState(sensor.add(metrics.metricName("max", sensor.name()), new Max()));
                     checkState(sensor.add(metrics.metricName("avg", sensor.name()), new Avg()));
-                    checkState(sensor.add(metrics.metricName("count-per-sec", sensor.name()), new Rate(new Count())));
+                    checkState(sensor.add(metrics.metricName("count-per-sec", sensor.name()), new Rate(TimeUnit.SECONDS)));
                 }
         );
     }
@@ -241,5 +243,13 @@ public class WorkersMetrics {
         addSensor(QUEUE_SIZE_LIMIT_METRIC);
         metrics.addMetric(metrics.metricName(QUEUES_TOTAL_SIZE_METRIC, ""),
                 (conf, now) -> queuesManager.getTotalSizeInBytes());
+    }
+
+    public void addOffsetsStateMetrics() {
+        Sensor sensor = metrics.sensor(METRIC_INFO_COMPUTE_TIME_METRIC);
+        checkState(sensor.add(metrics.metricName("min", sensor.name()), new Min()));
+        checkState(sensor.add(metrics.metricName("max", sensor.name()), new Max()));
+        checkState(sensor.add(metrics.metricName("avg", sensor.name()), new Avg()));
+        checkState(sensor.add(metrics.metricName("count-per-sec", sensor.name()), new Rate(TimeUnit.SECONDS)));
     }
 }

@@ -1,6 +1,7 @@
 package com.rtbhouse.kafka.workers.impl.offsets;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.rtbhouse.kafka.workers.impl.metrics.WorkersMetrics.METRIC_INFO_COMPUTE_TIME_METRIC;
 import static com.rtbhouse.kafka.workers.impl.offsets.OffsetStatus.CONSUMED;
 import static com.rtbhouse.kafka.workers.impl.offsets.OffsetStatus.PROCESSED;
 import static com.rtbhouse.kafka.workers.impl.util.TimeUtils.age;
@@ -11,10 +12,13 @@ import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.Deque;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
@@ -25,6 +29,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.rtbhouse.kafka.workers.api.WorkersConfig;
 import com.rtbhouse.kafka.workers.impl.errors.BadOffsetException;
 import com.rtbhouse.kafka.workers.impl.errors.ProcessingTimeoutException;
@@ -38,8 +43,10 @@ public class DefaultOffsetsState implements OffsetsState {
 
     private static final Logger logger = LoggerFactory.getLogger(DefaultOffsetsState.class);
 
+    private final TopicPartitionMetricInfo ZERO_METRIC_INFO = new TopicPartitionMetricInfo();
+    private final Deque<TopicPartitionMetricInfo> ZERO_METRIC_INFO_DEQUE = new ArrayDeque<>(List.of(ZERO_METRIC_INFO));
     private final boolean computeMetricInfoEnabled;
-    private final Duration metricInfoMaxDelay;
+    private final Duration metricInfoComputeDelay;
     private final Duration computeMetricsDurationWarn;
     private final Duration lastMetricInfoMaxAge;
     private final long lastMetricInfosMaxSize;
@@ -51,21 +58,22 @@ public class DefaultOffsetsState implements OffsetsState {
 
     private final ConcurrentHashMap<TopicPartition, TopicPartitionMetricInfo> currMetricInfos = new ConcurrentHashMap<>();
 
-    // TODO: Deque inside is not thread-safe (there should be a single thread computing MetricInfos)
+    // reads and writes to Deque-s have to be synchronized
     private final ConcurrentHashMap<TopicPartition, Deque<TopicPartitionMetricInfo>> lastMetricInfos = new ConcurrentHashMap<>();
 
     public DefaultOffsetsState(WorkersConfig config, WorkersMetrics metrics) {
         this.metrics = metrics;
 
         this.computeMetricInfoEnabled = getBooleanFromConfig(config,"offsets-state.metric-infos.enabled", false);
-        this.metricInfoMaxDelay = Duration.ofMillis(getLongFromConfig(config, "offsets-state.metric-infos.delay.ms", 1_000L));
+        this.metricInfoComputeDelay = Duration.ofMillis(getLongFromConfig(config, "offsets-state.metric-infos.delay.ms", 10_000L));
         this.computeMetricsDurationWarn = Duration.ofMillis(getLongFromConfig(config, "offsets-state.metric-infos.compute.warn.ms",
-                1_000L));
+                10_000L));
         this.lastMetricInfoMaxAge = Duration.ofMillis(getLongFromConfig(config, "offsets-state.last-metric-infos.max.age.ms",
-                30_000L));
+                metricInfoComputeDelay.multipliedBy(11).toMillis())); // at least 10 results in lastMetricInfos for each partition
         this.lastMetricInfosMaxSize = getLongFromConfig(config, "offsets-state.last-metric-infos.max.size", 100L);
-        checkState(!metricInfoMaxDelay.isNegative());
+        checkState(!metricInfoComputeDelay.isNegative());
         checkState(!computeMetricsDurationWarn.isNegative());
+        runThreadComputingMetricInfos();
     }
 
     private static boolean getBooleanFromConfig(WorkersConfig config, String key, boolean defaultValue) {
@@ -83,20 +91,21 @@ public class DefaultOffsetsState implements OffsetsState {
     }
 
     public TopicPartitionMetricInfo getCurrMetricInfo(TopicPartition partition) {
-        return currMetricInfos.computeIfAbsent(partition, this::createTopicPartitionMetricInfo);
+        return currMetricInfos.getOrDefault(partition, ZERO_METRIC_INFO);
     }
 
     public TopicPartitionMetricInfo getMaxMetricInfo(TopicPartition partition) {
-        Deque<TopicPartitionMetricInfo> deque = lastMetricInfos.computeIfAbsent(partition,
-                key -> new ArrayDeque<>(ImmutableList.of(getCurrMetricInfo(key))));
-        // TODO: check whether synchronization on deques with MetricInfos is consistent and remove if not needed.
+        Deque<TopicPartitionMetricInfo> deque = lastMetricInfos.getOrDefault(partition, ZERO_METRIC_INFO_DEQUE);
+        // synchronize reads and writes
         synchronized (deque) {
-            removeOldMetricInfos(deque);
-            return deque.stream().max(this::cmpMetricInfoByNumRanges).orElseGet(() -> getCurrMetricInfo(partition));
+            return deque.stream()
+                    .max(this::cmpMetricInfoByNumRanges)
+                    .orElse(ZERO_METRIC_INFO);
         }
     }
 
     private void removeOldMetricInfos(Deque<TopicPartitionMetricInfo> deque) {
+        // deque.size() should be O(1)
         while (deque.size() > lastMetricInfosMaxSize
                 || (deque.peekFirst() != null && isOlderThan(deque.peekFirst().computedAt, lastMetricInfoMaxAge))) {
             deque.pollFirst();
@@ -180,44 +189,26 @@ public class DefaultOffsetsState implements OffsetsState {
         }
     }
 
-    // TODO: there should be a separate thread computing MetricInfos and getters (getCurrMetricInfo, getMaxMetricInfo)
-    //  should only read precomputed values (should not trigger computation).
     private void computeMetricInfo(TopicPartition partition) {
-        if (!shouldComputeMetricInfo(partition)) {
-            return;
-        }
-
         TopicPartitionMetricInfo currInfo = createTopicPartitionMetricInfo(partition);
-        Instant start = Instant.now().minus(Duration.ofMillis(currInfo.computationTimeMillis));
         currMetricInfos.put(partition, currInfo);
         lastMetricInfos.compute(partition, (key, value) ->
                 Optional.ofNullable(value)
                         .map(v -> {
-                            v.addLast(currInfo);
-                            removeOldMetricInfos(v);
-                            return v;
+                            // synchronize reads and writes
+                            synchronized (v) {
+                                v.addLast(currInfo);
+                                removeOldMetricInfos(v);
+                                return v;
+                            }
                         })
                         .orElseGet(() -> new ArrayDeque<>(ImmutableList.of(currInfo))));
-        if (isOlderThan(start, computeMetricsDurationWarn)) {
-            logger.warn("Computing MetricInfo for partition [{}] took too long [{}] ms",
-                    partition, Duration.between(start, Instant.now()).toMillis());
-        }
     }
 
     private TopicPartitionMetricInfo createTopicPartitionMetricInfo(TopicPartition partition) {
         TopicPartitionMetricInfo topicPartitionMetricInfo = this.new TopicPartitionMetricInfo(partition);
-        metrics.recordSensor("offsets-state.topic-partition-metric-info.compute-time", topicPartitionMetricInfo.computationTimeMillis);
+        metrics.recordSensor(METRIC_INFO_COMPUTE_TIME_METRIC, topicPartitionMetricInfo.computationTimeMillis);
         return topicPartitionMetricInfo;
-    }
-
-    private boolean shouldComputeMetricInfo(TopicPartition partition) {
-        if (!computeMetricInfoEnabled) {
-            return false;
-        }
-
-        return Optional.ofNullable(lastMetricInfos.get(partition))
-                .map(deque -> deque.isEmpty() || metricInfoMaxDelay.isZero() || isOlderThan(deque.getLast().computedAt, metricInfoMaxDelay))
-                .orElse(true);
     }
 
     private int cmpMetricInfoByNumRanges(TopicPartitionMetricInfo info1, TopicPartitionMetricInfo info2) {
@@ -358,6 +349,32 @@ public class DefaultOffsetsState implements OffsetsState {
                         entry -> entry.getValue().stream().mapToLong(ClosedRange::size).sum()));
     }
 
+    private void runThreadComputingMetricInfos() {
+        if (computeMetricInfoEnabled) {
+            metrics.addOffsetsStateMetrics();
+
+            ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(1, new ThreadFactoryBuilder()
+                    .setNameFormat("metric-infos-thread-%d")
+                    .setDaemon(true)
+                    .setUncaughtExceptionHandler((t, e) -> {
+                        logger.warn("thread [{}] finished with exception", t.getName(), e);
+                    })
+                    .build());
+
+            executor.scheduleAtFixedRate(this::computeMetricInfos, 0, metricInfoComputeDelay.toMillis(), TimeUnit.MILLISECONDS);
+        }
+    }
+
+    private void computeMetricInfos() {
+        Instant start = Instant.now();
+
+        getPartitions().forEach(this::computeMetricInfo);
+
+        if (isOlderThan(start, computeMetricsDurationWarn)) {
+            logger.warn("Computing MetricInfos took too long [{}] ms", Duration.between(start, Instant.now()).toMillis());
+        }
+    }
+
     public class TopicPartitionMetricInfo {
 
         private final Instant computedAt = Instant.now();
@@ -382,6 +399,13 @@ public class DefaultOffsetsState implements OffsetsState {
                     this.computationTimeMillis = System.currentTimeMillis() - start;
                 }
             }
+        }
+
+        private TopicPartitionMetricInfo() {
+            // this constructor is only to create ZERO value
+            this.offsetStatusCounts = Map.of();
+            this.offsetRangesStatusCounts = Map.of();
+            this.computationTimeMillis = 0;
         }
 
         private Map<OffsetStatus, Integer> calculateOffsetRangesStatusCounts(ConsumedOffsets consumedRanges,
