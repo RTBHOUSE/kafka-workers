@@ -44,6 +44,7 @@ public class WorkerTaskImpl<K, V> implements WorkerTask<K, V> {
     @Override
     public void process(WorkerRecord<K, V> record, RecordStatusObserver observer) {
         metrics.recordSensor(WorkersMetrics.PROCESSING_OFFSET_METRIC, subpartition, record.offset());
+        metrics.recordSensor(WorkersMetrics.PROCESSING_TIMESTAMP_METRIC, subpartition, record.timestamp());
         try {
             task.process(record, observer);
         } catch (Exception e) {
