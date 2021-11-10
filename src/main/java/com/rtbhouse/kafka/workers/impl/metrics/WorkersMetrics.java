@@ -46,6 +46,8 @@ public class WorkersMetrics {
     public static final String PROCESSING_OFFSET_METRIC = "worker-thread.processing-offset";
     public static final String PROCESSED_OFFSET_METRIC = "worker-thread.processed-offset";
 
+    public static final String PROCESSING_TIMESTAMP_METRIC = "worker-thread.processing-timestamp";
+
     public static final String QUEUES_TOTAL_SIZE_LIMIT_METRIC = "queues-manager.queues-total-size-limit.bytes";
     public static final String QUEUES_TOTAL_SIZE_METRIC = "queues-manager.queues-total-size.bytes";
     public static final String QUEUE_SIZE_LIMIT_METRIC = "queues-manager.queue-size-limit.bytes";
@@ -116,6 +118,7 @@ public class WorkersMetrics {
         addSensor(ACCEPTED_OFFSET_METRIC, subpartition);
         addSensor(PROCESSING_OFFSET_METRIC, subpartition);
         addSensor(PROCESSED_OFFSET_METRIC, subpartition);
+        addSensor(PROCESSING_TIMESTAMP_METRIC, subpartition);
     }
 
     public void removeWorkerThreadSubpartitionMetrics(WorkerSubpartition subpartition) {
@@ -123,6 +126,7 @@ public class WorkersMetrics {
         removeSensor(ACCEPTED_OFFSET_METRIC, subpartition);
         removeSensor(PROCESSING_OFFSET_METRIC, subpartition);
         removeSensor(PROCESSED_OFFSET_METRIC, subpartition);
+        removeSensor(PROCESSING_TIMESTAMP_METRIC, subpartition);
     }
 
     public void addSensor(String name, TopicPartition partition) {
