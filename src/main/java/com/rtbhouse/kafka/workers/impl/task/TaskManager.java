@@ -1,16 +1,5 @@
 package com.rtbhouse.kafka.workers.impl.task;
 
-import java.time.Duration;
-import java.time.Instant;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-
-import org.apache.kafka.common.TopicPartition;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.rtbhouse.kafka.workers.api.WorkersConfig;
 import com.rtbhouse.kafka.workers.api.partitioner.WorkerSubpartition;
 import com.rtbhouse.kafka.workers.api.task.WorkerTaskFactory;
@@ -18,6 +7,17 @@ import com.rtbhouse.kafka.workers.impl.Partitioned;
 import com.rtbhouse.kafka.workers.impl.metrics.WorkersMetrics;
 import com.rtbhouse.kafka.workers.impl.offsets.OffsetsState;
 import com.rtbhouse.kafka.workers.impl.partitioner.SubpartitionSupplier;
+import org.apache.kafka.common.TopicPartition;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class TaskManager<K, V> implements Partitioned {
 
@@ -31,6 +31,7 @@ public class TaskManager<K, V> implements Partitioned {
     private final List<WorkerThread<K, V>> threads;
     private final OffsetsState offsetsState;
     private final Duration consumerProcessingTimeout;
+    private final WorkerThreadAssignor<K, V> workerThreadAssignor;
 
     private final Map<WorkerSubpartition, WorkerTaskImpl<K, V>> partitionToTaskMap = new ConcurrentHashMap<>();
 
@@ -50,6 +51,7 @@ public class TaskManager<K, V> implements Partitioned {
         this.threads = threads;
         this.offsetsState = offsetsState;
         this.consumerProcessingTimeout = this.config.getConsumerProcessingTimeout();
+        this.workerThreadAssignor = new SpreadSubpartitionsWorkerThreadAssignor<>();
     }
 
     @Override
@@ -93,14 +95,16 @@ public class TaskManager<K, V> implements Partitioned {
     }
 
     private void rebalanceTasks() {
-        int index = 0;
-        for (WorkerTaskImpl<K, V> task : partitionToTaskMap.values()) {
-            threads.get(index).addTask(task);
-            task.setThread(threads.get(index));
-            logger.info("task: {} assigned to thread: {}", task.subpartition(), threads.get(index).getName());
-
-            // round-robin assignment
-            index = (index + 1) % threads.size();
+        final Map<WorkerThread<K, V>, List<WorkerSubpartition>> threadsAssignments = workerThreadAssignor.assign(
+                Collections.unmodifiableCollection(partitionToTaskMap.keySet()), Collections.unmodifiableList(threads));
+        for (WorkerThread<K, V> thread : threads) {
+            final List<WorkerSubpartition> assignedSubpartitions = threadsAssignments.get(thread);
+            for (WorkerSubpartition workerSubpartition : assignedSubpartitions) {
+                final WorkerTaskImpl<K, V> task = partitionToTaskMap.get(workerSubpartition);
+                thread.addTask(task);
+                task.setThread(thread);
+                logger.info("task: {} assigned to thread: {}", task.subpartition(), thread.getName());
+            }
         }
     }
 
