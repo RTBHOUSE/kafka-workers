@@ -98,7 +98,7 @@ public class TaskManager<K, V> implements Partitioned {
         final Map<WorkerThread<K, V>, List<WorkerSubpartition>> threadsAssignments = workerThreadAssignor.assign(
                 Collections.unmodifiableCollection(partitionToTaskMap.keySet()), Collections.unmodifiableList(threads));
         for (WorkerThread<K, V> thread : threads) {
-            final List<WorkerSubpartition> assignedSubpartitions = threadsAssignments.get(thread);
+            final List<WorkerSubpartition> assignedSubpartitions = threadsAssignments.getOrDefault(thread, List.of());
             for (WorkerSubpartition workerSubpartition : assignedSubpartitions) {
                 final WorkerTaskImpl<K, V> task = partitionToTaskMap.get(workerSubpartition);
                 thread.addTask(task);

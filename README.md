@@ -25,7 +25,7 @@ The last but not least was simplicity (lightweight library, with almost pure Kaf
 
 ## Version
 
-Current version is **1.1.8**
+Current version is **1.1.9**
 
 ## Requirements
 
@@ -39,7 +39,7 @@ Releases are distributed on [mvn repository](https://mvnrepository.com/artifact/
 <dependency>
     <groupId>com.rtbhouse</groupId>
     <artifactId>kafka-workers</artifactId>
-    <version>1.1.8</version>
+    <version>1.1.9</version>
 </dependency>
 ```
 
