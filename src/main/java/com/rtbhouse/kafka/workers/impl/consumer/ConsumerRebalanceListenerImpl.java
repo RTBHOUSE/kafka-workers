@@ -1,6 +1,7 @@
 package com.rtbhouse.kafka.workers.impl.consumer;
 
 import java.util.Collection;
+import java.util.Set;
 
 import org.apache.kafka.clients.consumer.ConsumerRebalanceListener;
 import org.apache.kafka.common.TopicPartition;
@@ -11,15 +12,18 @@ import com.rtbhouse.kafka.workers.impl.KafkaWorkersImpl;
 public class ConsumerRebalanceListenerImpl<K, V> implements ConsumerRebalanceListener {
 
     private final KafkaWorkersImpl<K, V> workers;
+    private final Set<TopicPartition> currentlyAssignedPartitions;
     private RuntimeException exception;
 
-    public ConsumerRebalanceListenerImpl(KafkaWorkersImpl<K, V> workers) {
+    public ConsumerRebalanceListenerImpl(KafkaWorkersImpl<K, V> workers, Set<TopicPartition> currentlyAssignedPartitions) {
         this.workers = workers;
+        this.currentlyAssignedPartitions = currentlyAssignedPartitions;
     }
 
     @Override
     public void onPartitionsRevoked(Collection<TopicPartition> partitions) {
         try {
+            currentlyAssignedPartitions.removeAll(partitions);
             workers.unregister(partitions);
         } catch (InterruptedException e) {
             exception = new WorkersException("InterruptedException", e);
@@ -33,6 +37,7 @@ public class ConsumerRebalanceListenerImpl<K, V> implements ConsumerRebalanceLis
     @Override
     public void onPartitionsAssigned(Collection<TopicPartition> partitions) {
         try {
+            currentlyAssignedPartitions.addAll(partitions);
             workers.register(partitions);
         } catch (InterruptedException e) {
             exception = new WorkersException("InterruptedException", e);

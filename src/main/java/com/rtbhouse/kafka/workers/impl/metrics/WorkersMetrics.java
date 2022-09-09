@@ -57,6 +57,8 @@ public class WorkersMetrics {
     public static final String WORKER_THREAD_TASK_COUNT_METRIC_NAME = "task-count";
 
     public static final String OFFSETS_CONSUMED_COUNT = "offsets.consumed.count";
+    public static final String OFFSETS_CONSUMED_LAG_MS = "offsets.consumed.lag_ms";
+    public static final String OFFSETS_CONSUMED_NOT_PROCESSED_LAG_MS = "offsets.consumed-not-processed.lag_ms";
     public static final String OFFSETS_PROCESSED_COUNT = "offsets.processed.count";
     public static final String OFFSET_RANGES_CONSUMED_COUNT = "offset-ranges.consumed.count";
     public static final String OFFSET_RANGES_PROCESSED_COUNT = "offset-ranges.processed.count";
@@ -65,6 +67,8 @@ public class WorkersMetrics {
 
     private static final List<String> ALL_OFFSETS_STATE_METRIC_NAMES = ImmutableList.of(
             OFFSETS_CONSUMED_COUNT,
+            OFFSETS_CONSUMED_LAG_MS,
+            OFFSETS_CONSUMED_NOT_PROCESSED_LAG_MS,
             OFFSETS_PROCESSED_COUNT,
             OFFSET_RANGES_CONSUMED_COUNT,
             OFFSET_RANGES_PROCESSED_COUNT
@@ -208,6 +212,11 @@ public class WorkersMetrics {
                 (config, now) -> offsetsState.getCurrMetricInfo(partition).getOffsetRangesStatusCount(CONSUMED));
         metrics.addMetric(metrics.metricName(OFFSET_RANGES_PROCESSED_COUNT, group),
                 (config, now) -> offsetsState.getCurrMetricInfo(partition).getOffsetRangesStatusCount(PROCESSED));
+
+        metrics.addMetric(metrics.metricName(OFFSETS_CONSUMED_LAG_MS, group),
+                (config, now) -> offsetsState.getCurrMetricInfo(partition).getConsumedLagMillis());
+        metrics.addMetric(metrics.metricName(OFFSETS_CONSUMED_NOT_PROCESSED_LAG_MS, group),
+                (config, now) -> offsetsState.getCurrMetricInfo(partition).getConsumedNotProcessedLagMillis());
     }
 
     private String offsetsStateCurrInfosPartitionGroup(TopicPartition partition) {

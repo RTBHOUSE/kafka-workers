@@ -9,6 +9,7 @@ import static com.rtbhouse.kafka.workers.impl.util.TimeUtils.isOlderThan;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.Deque;
@@ -64,7 +65,7 @@ public class DefaultOffsetsState implements OffsetsState {
     public DefaultOffsetsState(WorkersConfig config, WorkersMetrics metrics) {
         this.metrics = metrics;
 
-        this.computeMetricInfoEnabled = getBooleanFromConfig(config,"offsets-state.metric-infos.enabled", false);
+        this.computeMetricInfoEnabled = getBooleanFromConfig(config, "offsets-state.metric-infos.enabled", false);
         this.metricInfoComputeDelay = Duration.ofMillis(getLongFromConfig(config, "offsets-state.metric-infos.delay.ms", 10_000L));
         this.computeMetricsDurationWarn = Duration.ofMillis(getLongFromConfig(config, "offsets-state.metric-infos.compute.warn.ms",
                 10_000L));
@@ -380,6 +381,8 @@ public class DefaultOffsetsState implements OffsetsState {
         private final Instant computedAt = Instant.now();
         private final Map<OffsetStatus, Long> offsetStatusCounts;
         private final Map<OffsetStatus, Integer> offsetRangesStatusCounts;
+        private final long consumedLagMillis;
+        private final long consumedNotProcessedLagMillis;
         private final long computationTimeMillis;
 
         TopicPartitionMetricInfo(TopicPartition partition) {
@@ -396,6 +399,14 @@ public class DefaultOffsetsState implements OffsetsState {
                     long start = System.currentTimeMillis();
                     this.offsetStatusCounts = calculateOffsetStatusCounts(consumedRanges, processedRanges);
                     this.offsetRangesStatusCounts = calculateOffsetRangesStatusCounts(consumedRanges, processedRanges);
+                    this.consumedLagMillis = Optional.ofNullable(consumedRanges)
+                            .flatMap(ConsumedOffsets::getFirst)
+                            .map(ConsumedOffsetRange::getConsumedAt)
+                            .map(consumedAt -> ChronoUnit.MILLIS.between(consumedAt, computedAt))
+                            .orElse(0L);
+                    this.consumedNotProcessedLagMillis = findConsumedNotProcessedMinTime(consumedRanges, processedRanges)
+                            .map(consumedAt -> ChronoUnit.MILLIS.between(consumedAt, computedAt))
+                            .orElse(0L);
                     this.computationTimeMillis = System.currentTimeMillis() - start;
                 }
             }
@@ -405,6 +416,8 @@ public class DefaultOffsetsState implements OffsetsState {
             // this constructor is only to create ZERO value
             this.offsetStatusCounts = Map.of();
             this.offsetRangesStatusCounts = Map.of();
+            this.consumedLagMillis = 0L;
+            this.consumedNotProcessedLagMillis = 0L;
             this.computationTimeMillis = 0;
         }
 
@@ -434,6 +447,21 @@ public class DefaultOffsetsState implements OffsetsState {
             );
         }
 
+        private Optional<Instant> findConsumedNotProcessedMinTime(ConsumedOffsets consumedRanges,
+                SortedRanges processedOffsetRanges) {
+            if (consumedRanges == null) {
+                return Optional.empty();
+            }
+
+            if (processedOffsetRanges == null) {
+                return consumedRanges.getFirst().map(ConsumedOffsetRange::getConsumedAt);
+            }
+
+            return processedOffsetRanges.getFirst()
+                    .map(ClosedRange::lowerEndpoint)
+                    .flatMap(consumedRanges::findConsumedAt);
+        }
+
         public long getOffsetStatusCount(OffsetStatus status) {
             return offsetStatusCounts.getOrDefault(status, 0L);
         }
@@ -442,11 +470,21 @@ public class DefaultOffsetsState implements OffsetsState {
             return offsetRangesStatusCounts.getOrDefault(status, 0);
         }
 
+        public long getConsumedLagMillis() {
+            return consumedLagMillis;
+        }
+
+        public long getConsumedNotProcessedLagMillis() {
+            return consumedNotProcessedLagMillis;
+        }
+
         @Override
         public String toString() {
             return "TopicPartitionMetricInfo{"
                     + "offsetStatusCounts=" + offsetStatusCounts + ", "
-                    + "offsetRangesStatusCounts=" + offsetRangesStatusCounts
+                    + "offsetRangesStatusCounts=" + offsetRangesStatusCounts + ", "
+                    + "consumedLagMillis=" + consumedLagMillis + ", "
+                    + "consumedNotProcessedLagMillis=" + consumedNotProcessedLagMillis
                     + "}";
         }
     }

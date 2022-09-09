@@ -3,6 +3,8 @@ package com.rtbhouse.kafka.workers.impl.consumer;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -73,8 +75,10 @@ public class ConsumerThread<K, V> extends AbstractWorkersThread implements Parti
         this.subpartitionSupplier = subpartitionSupplier;
         this.offsetsState = offsetsState;
         this.consumer = new KafkaConsumer<>(config.getConsumerConfigs());
-        this.listener = new ConsumerRebalanceListenerImpl<>(workers);
-        this.commitCallback = new OffsetCommitCallbackImpl(config, this, offsetsState, metrics);
+
+        final Set<TopicPartition> currentlyAssignedPartitions = Collections.synchronizedSet(new HashSet<>());
+        this.listener = new ConsumerRebalanceListenerImpl<>(workers, currentlyAssignedPartitions);
+        this.commitCallback = new OffsetCommitCallbackImpl(config, this, offsetsState, currentlyAssignedPartitions, metrics);
         this.recordWeigher = recordWeigher;
     }
 

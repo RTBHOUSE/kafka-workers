@@ -20,6 +20,13 @@ import com.rtbhouse.kafka.workers.impl.range.ClosedRange;
 class ConsumedOffsets {
     private final RandomAccessArrayDeque<ConsumedOffsetRange> consumedRanges = new RandomAccessArrayDeque<>();
 
+    synchronized Optional<Instant> findConsumedAt(long offset) {
+        final ClosedRange singletonRange = singleElementRange(offset);
+        return floor(singletonRange).filter(consumedRange -> consumedRange.contains(offset))
+                .or(() -> ceiling(singletonRange).filter(consumedRange -> consumedRange.contains(offset)))
+                .map(ConsumedOffsetRange::getConsumedAt);
+    }
+
     synchronized Optional<Long> getMinExistingElement(ClosedRange range) {
         Optional<ConsumedOffsetRange> prevRange = floor(range);
         if (prevRange.isPresent()) {
