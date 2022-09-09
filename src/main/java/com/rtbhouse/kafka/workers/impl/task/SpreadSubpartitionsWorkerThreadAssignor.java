@@ -18,6 +18,9 @@ public class SpreadSubpartitionsWorkerThreadAssignor<K, V> implements WorkerThre
     @Override
     public Map<WorkerThread<K, V>, List<WorkerSubpartition>> assign(Collection<WorkerSubpartition> subpartitions,
             List<WorkerThread<K, V>> threads) {
+        if (threads.size() == 0) {
+            return Map.of();
+        }
         final List<WorkerSubpartition> sortedSubpartitions = new ArrayList<>(subpartitions);
         sortedSubpartitions.sort(COMPARATOR);
         final Map<WorkerThread<K, V>, List<WorkerSubpartition>> assignment = new HashMap<>();

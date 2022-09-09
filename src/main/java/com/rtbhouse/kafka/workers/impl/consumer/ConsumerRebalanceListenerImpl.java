@@ -11,16 +11,18 @@ import com.rtbhouse.kafka.workers.impl.KafkaWorkersImpl;
 public class ConsumerRebalanceListenerImpl<K, V> implements ConsumerRebalanceListener {
 
     private final KafkaWorkersImpl<K, V> workers;
+    private ConsumerThread<K, V> kvConsumerThread;
     private RuntimeException exception;
 
-    public ConsumerRebalanceListenerImpl(KafkaWorkersImpl<K, V> workers) {
+    public ConsumerRebalanceListenerImpl(KafkaWorkersImpl<K, V> workers, ConsumerThread<K, V> kvConsumerThread) {
         this.workers = workers;
+        this.kvConsumerThread = kvConsumerThread;
     }
 
     @Override
     public void onPartitionsRevoked(Collection<TopicPartition> partitions) {
         try {
-            workers.unregister(partitions);
+            kvConsumerThread.unregisterMutex(partitions, workers::unregister);
         } catch (InterruptedException e) {
             exception = new WorkersException("InterruptedException", e);
             throw exception;
@@ -33,7 +35,7 @@ public class ConsumerRebalanceListenerImpl<K, V> implements ConsumerRebalanceLis
     @Override
     public void onPartitionsAssigned(Collection<TopicPartition> partitions) {
         try {
-            workers.register(partitions);
+            kvConsumerThread.registerMutex(partitions, workers::register);
         } catch (InterruptedException e) {
             exception = new WorkersException("InterruptedException", e);
             throw exception;

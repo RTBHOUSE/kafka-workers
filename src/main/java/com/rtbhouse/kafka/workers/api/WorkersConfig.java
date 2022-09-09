@@ -83,6 +83,13 @@ public class WorkersConfig extends AbstractConfig {
     private static final int WORKER_THREADS_NUM_DEFAULT = 1;
 
     /**
+     * The number of {@link ConsumerThread}s per one {@link KafkaWorkers} instance.
+     */
+    public static final String CONSUMER_THREADS_NUM = "consumer.threads.num";
+    private static final String CONSUMER_THREADS_NUM_DOC = "The number of ConsumerThreads per one Kafka Workers instance.";
+    private static final int CONSUMER_THREADS_NUM_DEFAULT = 1;
+
+    /**
      * The time in milliseconds to wait for {@link WorkerThread} in case of not accepted tasks.
      */
     public static final String WORKER_SLEEP_MS = "worker.sleep.ms";
@@ -177,6 +184,11 @@ public class WorkersConfig extends AbstractConfig {
                         WORKER_THREADS_NUM_DEFAULT,
                         Importance.HIGH,
                         WORKER_THREADS_NUM_DOC)
+                .define(CONSUMER_THREADS_NUM,
+                        Type.INT,
+                        CONSUMER_THREADS_NUM_DEFAULT,
+                        Importance.HIGH,
+                        CONSUMER_THREADS_NUM_DOC)
                 .define(WORKER_SLEEP_MS,
                         Type.LONG,
                         WORKER_SLEEP_MS_DEFAULT,

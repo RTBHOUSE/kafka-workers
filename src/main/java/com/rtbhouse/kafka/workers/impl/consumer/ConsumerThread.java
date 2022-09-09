@@ -3,11 +3,14 @@ package com.rtbhouse.kafka.workers.impl.consumer;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
@@ -38,6 +41,14 @@ public class ConsumerThread<K, V> extends AbstractWorkersThread implements Parti
 
     private static final Logger logger = LoggerFactory.getLogger(ConsumerThread.class);
 
+    // A rebalance occurs per consumer so it's a valid scenario when in a single KW app
+    // consumer1 has partition P assigned and consumer2 has it revoked. As offsets and queues
+    // are shared between consumers if consumer1 executes register code before consumer2 executes
+    // unregister code an app may end up in state where OffsetManager and TaskManager don't see
+    // partition P registered,
+    // It's always accessed under synchronized block, so it might be an ordinary hash map
+    private static final Map<TopicPartition, Set<ConsumerThread<?, ?>>> assignedConsumerThreads = new HashMap<>();
+
     private final Duration consumerPollTimeout;
     private final Duration consumerProcessingTimeout;
     private final long consumerCommitIntervalMs;
@@ -62,8 +73,8 @@ public class ConsumerThread<K, V> extends AbstractWorkersThread implements Parti
             QueuesManager<K, V> queuesManager,
             SubpartitionSupplier<K, V> subpartitionSupplier,
             OffsetsState offsetsState,
-            RecordWeigher<K, V> recordWeigher) {
-        super("consumer-thread", config, metrics, workers);
+            RecordWeigher<K, V> recordWeigher, int index) {
+        super("consumer-thread-" + index, config, metrics, workers);
 
         this.consumerPollTimeout = config.getConsumerPollTimeout();
         this.consumerProcessingTimeout = config.getConsumerProcessingTimeout();
@@ -73,7 +84,7 @@ public class ConsumerThread<K, V> extends AbstractWorkersThread implements Parti
         this.subpartitionSupplier = subpartitionSupplier;
         this.offsetsState = offsetsState;
         this.consumer = new KafkaConsumer<>(config.getConsumerConfigs());
-        this.listener = new ConsumerRebalanceListenerImpl<>(workers);
+        this.listener = new ConsumerRebalanceListenerImpl<>(workers, this);
         this.commitCallback = new OffsetCommitCallbackImpl(config, this, offsetsState, metrics);
         this.recordWeigher = recordWeigher;
     }
@@ -198,6 +209,8 @@ public class ConsumerThread<K, V> extends AbstractWorkersThread implements Parti
     public void register(Collection<TopicPartition> topicPartitions) {
         for (TopicPartition partition : topicPartitions) {
             metrics.addConsumerThreadPartitionMetrics(partition);
+            assignedConsumerThreads.merge(partition, Set.of(this), (s1, s2) ->
+                ImmutableSet.copyOf(Sets.union(s1, s2)));
         }
     }
 
@@ -208,7 +221,32 @@ public class ConsumerThread<K, V> extends AbstractWorkersThread implements Parti
 
         for (TopicPartition partition : topicPartitions) {
             metrics.removeConsumerThreadPartitionMetrics(partition);
+            assignedConsumerThreads.merge(partition, Set.of(), (s1, s2) ->
+                ImmutableSet.copyOf(Sets.difference(s1, Set.of(this))));
         }
+    }
+
+    public void registerMutex(Collection<TopicPartition> topicPartitions, PartitionsConsumer registerConsumer) throws InterruptedException {
+        synchronized (assignedConsumerThreads) {
+            register(topicPartitions);
+            registerConsumer.accept(topicPartitions);
+        }
+    }
+
+    public void unregisterMutex(Collection<TopicPartition> topicPartitions,
+                PartitionsConsumer actualTopicPartitionsToRevokeConsumer) throws InterruptedException {
+        synchronized (assignedConsumerThreads) {
+            Collection<TopicPartition> actualPartitionsToUnregister = getPartitionsToUnregister(topicPartitions);
+            // only partitions which really might be unregistered might are passed downstream
+            unregister(actualPartitionsToUnregister);
+            actualTopicPartitionsToRevokeConsumer.accept(actualPartitionsToUnregister);
+        }
+    }
+
+    public Collection<TopicPartition> getPartitionsToUnregister(Collection<TopicPartition> partitionRevokedForASingleConsumer) {
+        return partitionRevokedForASingleConsumer.stream()
+            .filter(topicPartition -> assignedConsumerThreads.get(topicPartition).size() == 1)
+            .collect(Collectors.toList());
     }
 
     private void commitSync() {
@@ -246,5 +284,4 @@ public class ConsumerThread<K, V> extends AbstractWorkersThread implements Parti
         }
         return false;
     }
-
 }

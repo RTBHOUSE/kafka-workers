@@ -1,39 +1,5 @@
 package com.rtbhouse.kafka.workers.impl;
 
-import static com.rtbhouse.kafka.workers.api.KafkaWorkers.Status.CANNOT_STOP_THREADS;
-import static com.rtbhouse.kafka.workers.api.KafkaWorkers.Status.CLOSED_GRACEFULLY;
-import static com.rtbhouse.kafka.workers.api.KafkaWorkers.Status.CLOSED_NOT_GRACEFULLY;
-import static com.rtbhouse.kafka.workers.api.KafkaWorkers.Status.CLOSING;
-import static com.rtbhouse.kafka.workers.api.KafkaWorkers.Status.CLOSING_INTERRUPTED;
-import static com.rtbhouse.kafka.workers.api.KafkaWorkers.Status.CREATED;
-import static com.rtbhouse.kafka.workers.api.KafkaWorkers.Status.SHUTDOWN;
-import static com.rtbhouse.kafka.workers.api.KafkaWorkers.Status.STARTED;
-import static com.rtbhouse.kafka.workers.api.KafkaWorkers.Status.STARTING;
-import static com.rtbhouse.kafka.workers.api.KafkaWorkers.Status.isTransitionAllowed;
-import static com.rtbhouse.kafka.workers.impl.metrics.WorkersMetrics.WORKER_THREAD_COUNT_METRIC_NAME;
-import static com.rtbhouse.kafka.workers.impl.metrics.WorkersMetrics.WORKER_THREAD_METRIC_GROUP;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
-
-import java.time.Duration;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Comparator;
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.stream.Stream;
-
-import javax.annotation.Nullable;
-
-import org.apache.kafka.common.TopicPartition;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.rtbhouse.kafka.workers.api.KafkaWorkers.Status;
 import com.rtbhouse.kafka.workers.api.ShutdownCallback;
 import com.rtbhouse.kafka.workers.api.WorkersConfig;
@@ -51,6 +17,38 @@ import com.rtbhouse.kafka.workers.impl.queues.QueuesManager;
 import com.rtbhouse.kafka.workers.impl.record.weigher.RecordWeigher;
 import com.rtbhouse.kafka.workers.impl.task.TaskManager;
 import com.rtbhouse.kafka.workers.impl.task.WorkerThread;
+import org.apache.kafka.common.TopicPartition;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.annotation.Nullable;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Comparator;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.stream.Stream;
+
+import static com.rtbhouse.kafka.workers.api.KafkaWorkers.Status.CANNOT_STOP_THREADS;
+import static com.rtbhouse.kafka.workers.api.KafkaWorkers.Status.CLOSED_GRACEFULLY;
+import static com.rtbhouse.kafka.workers.api.KafkaWorkers.Status.CLOSED_NOT_GRACEFULLY;
+import static com.rtbhouse.kafka.workers.api.KafkaWorkers.Status.CLOSING;
+import static com.rtbhouse.kafka.workers.api.KafkaWorkers.Status.CLOSING_INTERRUPTED;
+import static com.rtbhouse.kafka.workers.api.KafkaWorkers.Status.CREATED;
+import static com.rtbhouse.kafka.workers.api.KafkaWorkers.Status.SHUTDOWN;
+import static com.rtbhouse.kafka.workers.api.KafkaWorkers.Status.STARTED;
+import static com.rtbhouse.kafka.workers.api.KafkaWorkers.Status.STARTING;
+import static com.rtbhouse.kafka.workers.api.KafkaWorkers.Status.isTransitionAllowed;
+import static com.rtbhouse.kafka.workers.impl.metrics.WorkersMetrics.WORKER_THREAD_COUNT_METRIC_NAME;
+import static com.rtbhouse.kafka.workers.impl.metrics.WorkersMetrics.WORKER_THREAD_METRIC_GROUP;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class KafkaWorkersImpl<K, V> implements Partitioned {
 
@@ -67,10 +65,11 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
     private final QueuesManager<K, V> queueManager;
     private final OffsetsState offsetsState;
 
-    private ThreadPoolExecutor executor;
+    private ThreadPoolExecutor workerThreadsExecutor;
+    private ThreadPoolExecutor consumerThreadsExecutor;
     private final List<WorkerThread<K, V>> workerThreads = new ArrayList<>();
+    private final List<ConsumerThread<K, V>> consumerThreads = new ArrayList<>();
     private PunctuatorThread<K, V> punctuatorThread;
-    private ConsumerThread<K, V> consumerThread;
 
     private ShutdownListenerThread shutdownThread;
     private final Object shutdownLock = new Object();
@@ -103,21 +102,32 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
         logger.info("kafka workers starting");
 
         final int workerThreadsNum = config.getInt(WorkersConfig.WORKER_THREADS_NUM);
-        consumerThread = new ConsumerThread<>(config, metrics, this, queueManager, subpartitionSupplier, offsetsState, recordWeigher);
-        consumerThread.setDaemon(false);
+        final int consumerThreadsNum = config.getInt(WorkersConfig.CONSUMER_THREADS_NUM);
+        for (int i = 0; i < consumerThreadsNum; i++) {
+            final ConsumerThread<K, V> consumerThread =
+                new ConsumerThread<>(config, metrics, this, queueManager, subpartitionSupplier, offsetsState, recordWeigher, i);
+            consumerThreads.add(consumerThread);
+        }
         for (int i = 0; i < workerThreadsNum; i++) {
             workerThreads.add(new WorkerThread<>(i, config, metrics, this,  taskManager, queueManager, offsetsState));
         }
         punctuatorThread = new PunctuatorThread<>(config, metrics, this, workerThreads);
         punctuatorThread.setDaemon(false);
 
-        executor = new ThreadPoolExecutor(workerThreadsNum, workerThreadsNum,
+        consumerThreadsExecutor = new ThreadPoolExecutor(consumerThreadsNum, consumerThreadsNum,
+            0L, TimeUnit.MILLISECONDS,
+            new LinkedBlockingQueue<>());
+        for (ConsumerThread<K, V> consumerThread : consumerThreads) {
+            consumerThreadsExecutor.execute(consumerThread);
+        }
+
+        workerThreadsExecutor = new ThreadPoolExecutor(workerThreadsNum, workerThreadsNum,
                 0L, TimeUnit.MILLISECONDS,
                 new LinkedBlockingQueue<>());
-        consumerThread.start();
         for (WorkerThread<K, V> workerThread : workerThreads) {
-            executor.execute(workerThread);
+            workerThreadsExecutor.execute(workerThread);
         }
+
         punctuatorThread.start();
 
         setStatus(STARTED);
@@ -151,29 +161,35 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
 
         metrics.removeMetric(WORKER_THREAD_METRIC_GROUP, WORKER_THREAD_COUNT_METRIC_NAME);
 
-        consumerThread.shutdown();
+        for (ConsumerThread<K, V> consumerThread : consumerThreads) {
+            consumerThread.shutdown();
+        }
+
+        logger.info("consumerThreadsExecutor.shutdown()");
+        consumerThreadsExecutor.shutdown();
+
         punctuatorThread.shutdown();
 
         for (WorkerThread<K, V> workerThread : workerThreads) {
             workerThread.shutdown();
         }
 
-        logger.info("executorService.shutdown()");
-        executor.shutdown();
+        logger.info("workerThreadsExecutor.shutdown()");
+        workerThreadsExecutor.shutdown();
 
         Duration shutdownTimeout = config.getShutdownTimeout();
         Status terminalStatus;
         try {
             logger.info("executorService.awaitTermination({}s)", shutdownTimeout.toSeconds());
-            if (executor.awaitTermination(shutdownTimeout.toMillis(), MILLISECONDS)) {
+            if (workerThreadsExecutor.awaitTermination(shutdownTimeout.toMillis(), MILLISECONDS)) {
                 terminalStatus = CLOSED_GRACEFULLY;
                 logger.info("executorService terminated successfully with shutdown() method");
             } else {
                 logger.warn("executorService not terminated within the given period (using shutdown() method)");
                 logger.info("executorService.shutdownNow()");
-                executor.shutdownNow();
+                workerThreadsExecutor.shutdownNow();
                 logger.info("executorService.awaitTermination({}s)", shutdownTimeout.toSeconds());
-                if (executor.awaitTermination(shutdownTimeout.toMillis(), MILLISECONDS)) {
+                if (workerThreadsExecutor.awaitTermination(shutdownTimeout.toMillis(), MILLISECONDS)) {
                     terminalStatus = CLOSED_NOT_GRACEFULLY;
                     logger.info("executorService terminated successfully with shutdownNow() method");
                 } else {
@@ -186,7 +202,9 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
             logger.error("interrupted", e);
         }
 
-        consumerThread.allowToClose();
+        for (ConsumerThread<K, V> consumerThread : consumerThreads) {
+            consumerThread.allowToClose();
+        }
 
         try {
             Duration remainingThreadsWaitForClose = Stream.of(
@@ -195,16 +213,21 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
                     .get()
                     .plus(5, ChronoUnit.SECONDS);
 
-            CompletableFuture.allOf(
-                    waitForCloseAsync(consumerThread, config.getConsumerThreadClosingTimeout()),
-                    waitForCloseAsync(punctuatorThread, config.getPunctuatorThreadClosingTimeout())
-            ).get(remainingThreadsWaitForClose.toMillis(), MILLISECONDS);
+            CompletableFuture[] completableFutures = new CompletableFuture[consumerThreads.size() + 1];
+            for (int i = 0; i < consumerThreads.size(); i++) {
+                ConsumerThread<K, V> ct = consumerThreads.get(i);
+                completableFutures[i] = waitForCloseAsync(ct, config.getConsumerThreadClosingTimeout());
+            }
+            completableFutures[completableFutures.length - 1] =
+                waitForCloseAsync(punctuatorThread, config.getPunctuatorThreadClosingTimeout());
+            CompletableFuture.allOf(completableFutures)
+                .get(remainingThreadsWaitForClose.toMillis(), MILLISECONDS);
         } catch (InterruptedException e) {
             terminalStatus = CLOSING_INTERRUPTED;
             logger.error("interrupted", e);
         } catch (TimeoutException e) {
             terminalStatus = CANNOT_STOP_THREADS;
-            logErrorIfThreadIsAlive(consumerThread);
+            consumerThreads.forEach(this::logErrorIfThreadIsAlive);
             logErrorIfThreadIsAlive(punctuatorThread);
         } catch (Exception e) {
             logger.error("Waiting for closing threads failed", e);
@@ -215,10 +238,10 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
         }
 
         setStatus(terminalStatus);
-        if (executor.isTerminated()) {
+        if (workerThreadsExecutor.isTerminated()) {
             workerThreads.clear();
         } else {
-            logger.error("Couldn't stop [{}] worker thread(s)", executor.getActiveCount());
+            logger.error("Couldn't stop [{}] worker thread(s)", workerThreadsExecutor.getActiveCount());
         }
         logger.info("kafka workers closed with status: {}", status);
 
@@ -275,7 +298,6 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
     @Override
     public void register(Collection<TopicPartition> partitions) throws InterruptedException {
         logger.info("partitions registered: {}", partitions);
-        consumerThread.register(partitions);
         offsetsState.register(partitions);
         queueManager.register(partitions);
         taskManager.register(partitions);
@@ -286,7 +308,6 @@ public class KafkaWorkersImpl<K, V> implements Partitioned {
         logger.info("partitions unregistered: {}", partitions);
         taskManager.unregister(partitions);
         queueManager.unregister(partitions);
-        consumerThread.unregister(partitions);
         offsetsState.unregister(partitions);
     }
 
